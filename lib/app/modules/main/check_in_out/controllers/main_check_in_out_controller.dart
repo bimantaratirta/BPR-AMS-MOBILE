@@ -48,6 +48,10 @@ class MainCheckInOutController extends GetxController with GetTickerProviderStat
   final RxString locationError = ''.obs;
   final RxDouble distanceFromBranch = 0.0.obs;
 
+  // ── Koordinat GPS device (diisi saat validasi lokasi) ──
+  double? _deviceLat;
+  double? _deviceLng;
+
   // ── Camera ───────────────────────────────────────────
   CameraController? cameraController;
   final RxBool isCameraReady = false.obs;
@@ -188,6 +192,12 @@ class MainCheckInOutController extends GetxController with GetTickerProviderStat
     isLocationValid.value = result.isInRadius;
     distanceFromBranch.value = result.distance;
 
+    // Simpan koordinat GPS asli untuk dipakai pada saat submit
+    if (result.deviceLat != null && result.deviceLng != null) {
+      _deviceLat = result.deviceLat;
+      _deviceLng = result.deviceLng;
+    }
+
     if (result.error != null) {
       locationError.value = result.error!;
     }
@@ -317,15 +327,8 @@ class MainCheckInOutController extends GetxController with GetTickerProviderStat
       return;
     }
 
-    // Build FormData
-    final formData = FormData.fromMap({
-      'checkInLat': -6.937350,
-      'checkInLng': 107.712750,
-      'employeeId': employee.id,
-      'branchId': employee.branch?.id,
-      'checkInTime': actionTime.toUtc().toIso8601String(),
-      'date': DateTime(actionTime.year, actionTime.month, actionTime.day).toUtc().toIso8601String(),
-    });
+    // Build FormData dengan koordinat GPS asli
+    final formData = FormData.fromMap({'checkInLat': _deviceLat ?? 0.0, 'checkInLng': _deviceLng ?? 0.0});
 
     // Add photo if captured
     if (capturedPhoto != null) {
@@ -379,7 +382,7 @@ class MainCheckInOutController extends GetxController with GetTickerProviderStat
   }
 
   Future<void> _performCheckOut() async {
-    final body = {'checkOutLat': -6.937350, 'checkOutLng': 107.712750, 'checkOutTime': actionTime.toUtc().toIso8601String()};
+    final body = {'checkOutLat': _deviceLat ?? 0.0, 'checkOutLng': _deviceLng ?? 0.0};
 
     final response = await _attendanceService.checkOut(body);
 

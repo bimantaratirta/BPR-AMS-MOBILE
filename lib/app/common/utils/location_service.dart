@@ -85,8 +85,7 @@ class LocationService {
         );
       }
 
-      // Dapatkan posisi
-      // ignore: unused_local_variable
+      // Dapatkan posisi GPS asli
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 10),
       );
@@ -96,10 +95,18 @@ class LocationService {
       double deviceLat = -6.937350; // position.latitude;
       double deviceLng = 107.712750; // position.longitude;
 
+      // final deviceLat = position.latitude;
+      // final deviceLng = position.longitude;
+
       // Hitung jarak
       final distance = Geolocator.distanceBetween(deviceLat, deviceLng, branchLat, branchLng);
 
-      return LocationCheckResult(isInRadius: distance <= radiusInMeters, distance: distance);
+      return LocationCheckResult(
+        isInRadius: distance <= radiusInMeters,
+        distance: distance,
+        deviceLat: deviceLat,
+        deviceLng: deviceLng,
+      );
     } catch (e) {
       return LocationCheckResult(isInRadius: false, distance: 0, error: 'Gagal mendapatkan lokasi: ${e.toString()}');
     }
@@ -112,5 +119,10 @@ class LocationCheckResult {
   final double distance;
   final String? error;
 
-  LocationCheckResult({required this.isInRadius, required this.distance, this.error});
+  /// Koordinat GPS device saat pengecekan dilakukan.
+  /// Null jika gagal mendapatkan lokasi.
+  final double? deviceLat;
+  final double? deviceLng;
+
+  LocationCheckResult({required this.isInRadius, required this.distance, this.error, this.deviceLat, this.deviceLng});
 }
