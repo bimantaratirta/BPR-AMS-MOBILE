@@ -157,7 +157,8 @@ class MainPermitController extends GetxController {
             }
           });
           validationErrors.refresh();
-          message.value = 'Validasi gagal. Periksa input Anda.';
+          message.value =
+              response.error ?? response.errors['message'] ?? response.message ?? 'Validasi gagal. Periksa input Anda.';
         } else if (response.error != null) {
           message.value = response.error.toString();
         } else {
