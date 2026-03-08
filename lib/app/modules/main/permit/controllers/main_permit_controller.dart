@@ -127,7 +127,7 @@ class MainPermitController extends GetxController {
         'startDate': tanggalMulai.value!.toUtc().toIso8601String(),
         'endDate': tanggalSelesai.value!.toUtc().toIso8601String(),
         'reason': alasanController.text.trim(),
-        'employeeId': employeeId,
+        // 'employeeId': employeeId,
       });
 
       // Add attachment file if present

@@ -14,6 +14,9 @@ class MainHistoryController extends GetxController {
   final LeaveRequestService _leaveRequestService = LeaveRequestService();
   final AuthController _authController = Get.find<AuthController>();
 
+  // ---- Scroll controller untuk infinite scroll + pull-to-refresh
+  final ScrollController scrollController = ScrollController();
+
   // ---- Tab (0 = Absensi, 1 = Izin)
   final RxInt selectedTab = 0.obs;
 
@@ -23,22 +26,25 @@ class MainHistoryController extends GetxController {
   // ---- Loading states
   final RxBool isLoadingAbsensi = false.obs;
   final RxBool isLoadingIzin = false.obs;
+  final RxBool isLoadingMoreAbsensi = false.obs;
+  final RxBool isLoadingMoreIzin = false.obs;
+
+  // ---- Pagination state – Absensi
+  int _absensiPage = 1;
+  static const int _pageLimit = 10;
+  final RxBool hasMoreAbsensi = true.obs;
+
+  // ---- Pagination state – Izin
+  int _izinPage = 1;
+  final RxBool hasMoreIzin = true.obs;
 
   // ---- Data from API
   final RxList<AttendanceModel> attendances = <AttendanceModel>[].obs;
   final RxList<LeaveRequestModel> leaveRequests = <LeaveRequestModel>[].obs;
 
-  // ── Computed: current month key ──
-  String get _monthKey => DateFormat('yyyy-MM').format(selectedMonth.value);
-
   // ── Absensi list for selected month ──
   List<AttendanceModel> get absensiList {
-    final m = selectedMonth.value;
-    return attendances.where((r) {
-        if (r.date == null) return false;
-        return r.date!.year == m.year && r.date!.month == m.month;
-      }).toList()
-      ..sort((a, b) => (b.date ?? DateTime(0)).compareTo(a.date ?? DateTime(0)));
+    return List<AttendanceModel>.from(attendances);
   }
 
   // ── Absensi summary ──
@@ -46,13 +52,9 @@ class MainHistoryController extends GetxController {
   int get absensiTerlambat => absensiList.where((r) => r.status == 'TERLAMBAT').length;
   int get absensiAlpha => absensiList.where((r) => r.status == 'ALPHA').length;
 
-  // ── Izin list for selected month (filtered from API data) ──
+  // ── Izin list  ──
   List<LeaveRequestModel> get izinList {
-    final m = selectedMonth.value;
-    return leaveRequests.where((r) {
-      if (r.startDate == null) return false;
-      return r.startDate!.year == m.year && r.startDate!.month == m.month;
-    }).toList();
+    return List<LeaveRequestModel>.from(leaveRequests);
   }
 
   // ── Izin summary ──
@@ -70,71 +72,176 @@ class MainHistoryController extends GetxController {
   void prevMonth() {
     final m = selectedMonth.value;
     selectedMonth.value = DateTime(m.year, m.month - 1);
-    _fetchCurrentTabData();
+    _resetAndFetch();
   }
 
   void nextMonth() {
     final m = selectedMonth.value;
     selectedMonth.value = DateTime(m.year, m.month + 1);
-    _fetchCurrentTabData();
+    _resetAndFetch();
   }
 
   void selectTab(int index) {
     selectedTab.value = index;
-    _fetchCurrentTabData();
+    _resetAndFetch();
   }
 
-  void _fetchCurrentTabData() {
+  // ── Reset pagination & fetch page 1 ──
+  void _resetAndFetch() {
     if (selectedTab.value == 0) {
+      _absensiPage = 1;
+      hasMoreAbsensi.value = true;
+      attendances.clear();
       fetchAttendances();
     } else {
+      _izinPage = 1;
+      hasMoreIzin.value = true;
+      leaveRequests.clear();
       fetchLeaveRequests();
     }
   }
 
+  // ── Pull-to-refresh ──
+  Future<void> onRefresh() async {
+    _scrollToTop();
+    _resetAndFetch();
+    // Wait until loading finishes
+    await Future.doWhile(() async {
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (selectedTab.value == 0) return isLoadingAbsensi.value;
+      return isLoadingIzin.value;
+    });
+  }
+
+  // ── Load more (infinite scroll) ──
+  void loadMore() {
+    if (selectedTab.value == 0) {
+      if (!isLoadingAbsensi.value && !isLoadingMoreAbsensi.value && hasMoreAbsensi.value) {
+        _absensiPage++;
+        fetchAttendances(isLoadMore: true);
+      }
+    } else {
+      if (!isLoadingIzin.value && !isLoadingMoreIzin.value && hasMoreIzin.value) {
+        _izinPage++;
+        fetchLeaveRequests(isLoadMore: true);
+      }
+    }
+  }
+
   // ── Fetch attendance data from API ──
-  Future<void> fetchAttendances() async {
-    isLoadingAbsensi.value = true;
+  Future<void> fetchAttendances({bool isLoadMore = false}) async {
+    if (isLoadMore) {
+      isLoadingMoreAbsensi.value = true;
+    } else {
+      isLoadingAbsensi.value = true;
+    }
 
     final employeeId = _authController.employee.value?.id;
     if (employeeId == null) {
       isLoadingAbsensi.value = false;
+      isLoadingMoreAbsensi.value = false;
       return;
     }
 
     try {
-      final response = await _attendanceService.getAttendances(queryParameters: {'employeeId': employeeId});
+      final response = await _attendanceService.getAttendances(
+        queryParameters: {
+          'pagination': {'page': _absensiPage, 'limit': _pageLimit},
+          'filter': {
+            'month': "${selectedMonth.value.year.toString()}-${selectedMonth.value.month.toString().padLeft(2, '0')}",
+            'employeeId': employeeId,
+          },
+          'order_by': [
+            {'field': 'created_at', 'direction': 'desc'},
+          ],
+        },
+      );
 
       if ((response.code == 200 || response.code == 201) && response.data != null) {
-        attendances.value = response.data!;
+        final newItems = response.data!;
+        if (isLoadMore) {
+          attendances.addAll(newItems);
+        } else {
+          attendances.value = newItems;
+        }
+
+        // Determine if there are more pages
+        final total = _extractTotal(response.pagination);
+        hasMoreAbsensi.value = attendances.length < total;
+      } else {
+        hasMoreAbsensi.value = false;
       }
     } catch (_) {
-      // Silently handle error
+      hasMoreAbsensi.value = false;
     } finally {
       isLoadingAbsensi.value = false;
+      isLoadingMoreAbsensi.value = false;
     }
   }
 
   // ── Fetch leave requests from API ──
-  Future<void> fetchLeaveRequests() async {
-    isLoadingIzin.value = true;
+  Future<void> fetchLeaveRequests({bool isLoadMore = false}) async {
+    if (isLoadMore) {
+      isLoadingMoreIzin.value = true;
+    } else {
+      isLoadingIzin.value = true;
+    }
 
     final employeeId = _authController.employee.value?.id;
     if (employeeId == null) {
       isLoadingIzin.value = false;
+      isLoadingMoreIzin.value = false;
       return;
     }
 
     try {
-      final response = await _leaveRequestService.getLeaveRequests(queryParameters: {'employeeId': employeeId});
+      final response = await _leaveRequestService.getLeaveRequests(
+        queryParameters: {
+          'pagination': {'page': _izinPage, 'limit': _pageLimit},
+          'filter': {
+            'month': "${selectedMonth.value.year.toString()}-${selectedMonth.value.month.toString().padLeft(2, '0')}",
+            'employeeId': employeeId,
+          },
+          'order_by': [
+            {'field': 'created_at', 'direction': 'desc'},
+          ],
+        },
+      );
 
       if ((response.code == 200 || response.code == 201) && response.data != null) {
-        leaveRequests.value = response.data!;
+        final newItems = response.data!;
+        if (isLoadMore) {
+          leaveRequests.addAll(newItems);
+        } else {
+          leaveRequests.value = newItems;
+        }
+
+        final total = _extractTotal(response.pagination);
+        hasMoreIzin.value = leaveRequests.length < total;
+      } else {
+        hasMoreIzin.value = false;
       }
     } catch (_) {
-      // Silently handle error
+      hasMoreIzin.value = false;
     } finally {
       isLoadingIzin.value = false;
+      isLoadingMoreIzin.value = false;
+    }
+  }
+
+  // ── Extract total count from pagination metadata ──
+  int _extractTotal(dynamic pagination) {
+    if (pagination == null) return 0;
+    if (pagination is Map) {
+      return (pagination['total'] as int?) ?? (pagination['totalItems'] as int?) ?? (pagination['count'] as int?) ?? 0;
+    }
+    return 0;
+  }
+
+  // ── Scroll to top helper ──
+  void _scrollToTop() {
+    if (scrollController.hasClients) {
+      scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
     }
   }
 
@@ -210,5 +317,11 @@ class MainHistoryController extends GetxController {
 
     // Fetch initial data
     fetchAttendances();
+  }
+
+  @override
+  void onClose() {
+    scrollController.dispose();
+    super.onClose();
   }
 }
