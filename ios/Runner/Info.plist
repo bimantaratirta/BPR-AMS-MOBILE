@@ -47,5 +47,7 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Diperlukan untuk verifikasi wajah saat absensi</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Diperlukan untuk memverifikasi lokasi Anda saat absensi</string>
 </dict>
 </plist>

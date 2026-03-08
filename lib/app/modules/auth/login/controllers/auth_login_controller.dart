@@ -7,7 +7,7 @@ import 'package:get/get.dart';
 class AuthLoginController extends GetxController {
   final AuthService authService = AuthService();
 
-  final TextEditingController usernameController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
 
   final TextEditingController passwordController = TextEditingController();
   RxBool isPasswordVisible = false.obs;
@@ -23,17 +23,17 @@ class AuthLoginController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    usernameController.addListener(_updateFormValid);
+    emailController.addListener(_updateFormValid);
     passwordController.addListener(_updateFormValid);
   }
 
   void _updateFormValid() {
-    isFormValid.value = usernameController.text.isNotEmpty && passwordController.text.isNotEmpty;
+    isFormValid.value = emailController.text.isNotEmpty && passwordController.text.isNotEmpty;
   }
 
   @override
   void onClose() {
-    usernameController.dispose();
+    emailController.dispose();
     passwordController.dispose();
     super.onClose();
   }
@@ -44,8 +44,8 @@ class AuthLoginController extends GetxController {
       isLoading.value = true;
       message.value = '';
 
-      final payload = {"username": usernameController.text, "password": passwordController.text};
-      final response = await authService.login(payload);
+      final payload = {"email": emailController.text, "password": passwordController.text};
+      final response = await authService.loginEmployee(payload);
 
       isLoading.value = false;
 
@@ -74,7 +74,7 @@ class AuthLoginController extends GetxController {
 
         isLoading.value = false;
       } else {
-        String errorMsg = response.message ?? "Login gagal. Silakan coba lagi.";
+        String errorMsg = response.errors ?? response.error ?? response.message ?? "Login gagal. Silakan coba lagi.";
         message.value = errorMsg;
         CustomSnackbar(message: errorMsg, type: CustomSnackbarType.warning).show(context);
       }

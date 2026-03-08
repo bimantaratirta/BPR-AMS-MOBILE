@@ -1,4 +1,6 @@
 import 'package:bpr_ams/app/common/constant/app_colors.dart';
+import 'package:bpr_ams/app/data/modules/attendance/models/attendance_model.dart';
+import 'package:bpr_ams/app/data/modules/leave_request/models/leave_request_model.dart';
 import 'package:bpr_ams/app/modules/main/history/controllers/main_history_controller.dart';
 import 'package:bpr_ams/app/widgets/build_navigation/build_bottom_navigation_bar.dart';
 import 'package:flutter/material.dart';
@@ -214,9 +216,18 @@ class MainHistoryView extends GetView<MainHistoryController> {
   }
 
   // ─────────────────────────────────────────────
-  // Absensi List
+  // Absensi List (using AttendanceModel from API)
   // ─────────────────────────────────────────────
   Widget _buildAbsensiList() {
+    if (controller.isLoadingAbsensi.value) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 40.h),
+          child: CircularProgressIndicator(color: MainColor.blue2),
+        ),
+      );
+    }
+
     final list = controller.absensiList;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -231,12 +242,41 @@ class MainHistoryView extends GetView<MainHistoryController> {
     );
   }
 
-  Widget _buildAbsensiCard(AbsensiRecord r) {
+  Widget _buildAbsensiCard(AttendanceModel r) {
     initializeDateFormatting('id_ID', null);
-    final dateStr = DateFormat('EEEE, d MMM yyyy', 'id_ID').format(r.date);
-    final borderColor = r.isOnTime ? SecondaryColor.success700 : SecondaryColor.warning600;
-    final statusColor = r.isOnTime ? SecondaryColor.success700 : SecondaryColor.warning600;
-    final statusText = r.isOnTime ? 'Tepat Waktu' : 'Terlambat';
+    final dateStr = r.date != null ? DateFormat('EEEE, d MMM yyyy', 'id_ID').format(r.date!) : '-';
+
+    final Color borderColor;
+    final Color statusColor;
+    final String statusText = MainHistoryController.attendanceStatusLabel(r.status);
+
+    switch (r.status) {
+      case 'HADIR':
+        borderColor = SecondaryColor.success700;
+        statusColor = SecondaryColor.success700;
+        break;
+      case 'TERLAMBAT':
+        borderColor = SecondaryColor.warning600;
+        statusColor = SecondaryColor.warning600;
+        break;
+      case 'ALPHA':
+        borderColor = SecondaryColor.danger600;
+        statusColor = SecondaryColor.danger600;
+        break;
+      case 'IZIN_CUTI':
+      case 'IZIN_SAKIT':
+      case 'IZIN_SETENGAH_HARI':
+        borderColor = MainColor.blue2;
+        statusColor = MainColor.blue2;
+        break;
+      default:
+        borderColor = SecondaryColor.neutral400;
+        statusColor = SecondaryColor.neutral400;
+    }
+
+    final checkInStr = MainHistoryController.formatTime(r.checkInTime);
+    final checkOutStr = MainHistoryController.formatTime(r.checkOutTime);
+    final durationStr = MainHistoryController.formatDuration(r.durationMinutes);
 
     return Container(
       margin: EdgeInsets.only(bottom: 10.h),
@@ -254,17 +294,19 @@ class MainHistoryView extends GetView<MainHistoryController> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  dateStr,
-                  style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w700, color: SecondaryColor.neutral700),
+                Expanded(
+                  child: Text(
+                    dateStr,
+                    style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w700, color: SecondaryColor.neutral700),
+                  ),
                 ),
                 Text(statusText, style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w600, color: statusColor)),
               ],
             ),
             SizedBox(height: 6.h),
-            _iconRow(Icons.access_time_rounded, '${r.checkIn} — ${r.checkOut}'),
+            _iconRow(Icons.access_time_rounded, '$checkInStr — $checkOutStr'),
             SizedBox(height: 3.h),
-            _iconRow(Icons.timer_outlined, 'Durasi: ${r.duration}'),
+            _iconRow(Icons.timer_outlined, 'Durasi: $durationStr'),
           ],
         ),
       ),
@@ -272,9 +314,18 @@ class MainHistoryView extends GetView<MainHistoryController> {
   }
 
   // ─────────────────────────────────────────────
-  // Izin List
+  // Izin List (using LeaveRequestModel from API)
   // ─────────────────────────────────────────────
   Widget _buildIzinList() {
+    if (controller.isLoadingIzin.value) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 40.h),
+          child: CircularProgressIndicator(color: MainColor.blue2),
+        ),
+      );
+    }
+
     final list = controller.izinList;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -286,32 +337,32 @@ class MainHistoryView extends GetView<MainHistoryController> {
     );
   }
 
-  Widget _buildIzinCard(IzinRecord r) {
+  Widget _buildIzinCard(LeaveRequestModel r) {
     initializeDateFormatting('id_ID', null);
     final Color borderColor;
     final Color statusColor;
-    final String statusText;
+    final String statusText = MainHistoryController.leaveStatusLabel(r.status);
 
     switch (r.status) {
-      case IzinStatus.disetujui:
+      case 'APPROVED':
         borderColor = SecondaryColor.success700;
         statusColor = SecondaryColor.success700;
-        statusText = 'Disetujui';
         break;
-      case IzinStatus.menunggu:
+      case 'PENDING':
         borderColor = SecondaryColor.warning600;
         statusColor = SecondaryColor.warning600;
-        statusText = 'Menunggu';
         break;
-      case IzinStatus.ditolak:
+      case 'REJECTED':
         borderColor = SecondaryColor.danger600;
         statusColor = SecondaryColor.danger600;
-        statusText = 'Ditolak';
         break;
+      default:
+        borderColor = SecondaryColor.neutral400;
+        statusColor = SecondaryColor.neutral400;
     }
 
-    final startStr = DateFormat('d MMM yyyy', 'id_ID').format(r.startDate);
-    final endStr = DateFormat('d MMM yyyy', 'id_ID').format(r.endDate);
+    final startStr = r.startDate != null ? DateFormat('d MMM yyyy', 'id_ID').format(r.startDate!) : '-';
+    final endStr = r.endDate != null ? DateFormat('d MMM yyyy', 'id_ID').format(r.endDate!) : '-';
     final dateRange = startStr == endStr ? startStr : '$startStr — $endStr';
 
     return Container(
@@ -331,7 +382,7 @@ class MainHistoryView extends GetView<MainHistoryController> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  r.type,
+                  MainHistoryController.leaveTypeLabel(r.type),
                   style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w700, color: SecondaryColor.neutral700),
                 ),
                 Text(statusText, style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w600, color: statusColor)),
@@ -340,8 +391,8 @@ class MainHistoryView extends GetView<MainHistoryController> {
             SizedBox(height: 5.h),
             _iconRow(Icons.access_time_rounded, dateRange),
             SizedBox(height: 4.h),
-            Text(r.reason, style: TextStyle(fontSize: 12.sp, color: SecondaryColor.neutral500)),
-            if (r.rejectionNote != null) ...[
+            Text(r.reason ?? '-', style: TextStyle(fontSize: 12.sp, color: SecondaryColor.neutral500)),
+            if (r.rejectReason != null && r.rejectReason!.isNotEmpty) ...[
               SizedBox(height: 10.h),
               Container(
                 width: double.infinity,
@@ -360,7 +411,7 @@ class MainHistoryView extends GetView<MainHistoryController> {
                       ),
                     ),
                     SizedBox(height: 4.h),
-                    Text(r.rejectionNote!, style: TextStyle(fontSize: 12.sp, color: SecondaryColor.danger600)),
+                    Text(r.rejectReason!, style: TextStyle(fontSize: 12.sp, color: SecondaryColor.danger600)),
                   ],
                 ),
               ),

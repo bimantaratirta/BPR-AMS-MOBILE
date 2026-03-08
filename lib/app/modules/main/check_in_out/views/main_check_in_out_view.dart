@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:bpr_ams/app/common/constant/app_colors.dart';
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
@@ -20,8 +23,212 @@ class MainCheckInOutView extends GetView<MainCheckInOutController> {
       if (stage == CheckInStage.success) {
         return _buildSuccessPage();
       }
+      if (stage == CheckInStage.submitting) {
+        return _buildSubmittingPage();
+      }
+      if (stage == CheckInStage.confirmCheckOut) {
+        return _buildCheckOutConfirmPage();
+      }
       return _buildCameraPage(stage);
     });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // CHECK-OUT CONFIRM PAGE (no camera)
+  // ═══════════════════════════════════════════════════════════
+  Widget _buildCheckOutConfirmPage() {
+    return Scaffold(
+      backgroundColor: _bgColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ── Header ──────────────────────────────────
+            Padding(
+              padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 0),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: controller.onCancel,
+                    child: Container(
+                      width: 36.w,
+                      height: 36.w,
+                      decoration: BoxDecoration(
+                        color: SecondaryColor.white,
+                        borderRadius: BorderRadius.circular(10.r),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 6, offset: const Offset(0, 2)),
+                        ],
+                      ),
+                      child: Icon(Icons.close_rounded, size: 18.sp, color: SecondaryColor.neutral700),
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Konfirmasi Check Out',
+                        style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w800, color: SecondaryColor.neutral700),
+                      ),
+                      Text(
+                        'Pastikan data sudah benar',
+                        style: TextStyle(fontSize: 12.sp, color: _accentColor, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            SizedBox(height: 24.h),
+
+            // ── Location status banner ──────────────────────
+            Obx(() {
+              final isValid = controller.isLocationValid.value;
+              final bannerColor = isValid ? SecondaryColor.success700 : SecondaryColor.danger600;
+              final bannerIcon = isValid ? Icons.check_circle_rounded : Icons.location_off_rounded;
+              final bannerText =
+                  isValid
+                      ? 'Dalam radius ${controller.distanceFromBranch.value.toStringAsFixed(0)}m'
+                      : 'Di luar radius kantor';
+
+              return Container(
+                margin: EdgeInsets.symmetric(horizontal: 20.w),
+                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+                decoration: BoxDecoration(
+                  color: bannerColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12.r),
+                  border: Border.all(color: bannerColor.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(bannerIcon, size: 16.sp, color: bannerColor),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: Text(
+                        bannerText,
+                        style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w600, color: bannerColor),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+
+            const Spacer(),
+
+            // ── Info card ──────────────────────────────────
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24.w),
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(24.w),
+                decoration: BoxDecoration(
+                  color: SecondaryColor.white,
+                  borderRadius: BorderRadius.circular(20.r),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 4))],
+                ),
+                child: Column(
+                  children: [
+                    // Icon
+                    Container(
+                      width: 72.w,
+                      height: 72.w,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(
+                          colors: [Color(0xffFF8C42), Color(0xffE84E00)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Icon(Icons.logout_rounded, color: Colors.white, size: 36.sp),
+                    ),
+                    SizedBox(height: 20.h),
+                    Text(
+                      'Yakin ingin Check Out?',
+                      style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w700, color: SecondaryColor.neutral700),
+                    ),
+                    SizedBox(height: 8.h),
+                    Text(
+                      'Check out akan dicatat pada waktu saat ini',
+                      style: TextStyle(fontSize: 13.sp, color: SecondaryColor.neutral400),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: 20.h),
+                    // Time & Branch
+                    _infoRow(
+                      icon: Icons.access_time_rounded,
+                      iconColor: SecondaryColor.neutral500,
+                      label: 'Waktu',
+                      value: controller.actionTimeDisplay,
+                      valueColor: SecondaryColor.neutral700,
+                    ),
+                    Divider(height: 1, thickness: 1, color: SecondaryColor.neutral200),
+                    _infoRow(
+                      icon: Icons.location_on_outlined,
+                      iconColor: SecondaryColor.neutral500,
+                      label: 'Lokasi',
+                      value: controller.branch,
+                      valueColor: SecondaryColor.neutral700,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const Spacer(),
+
+            // ── Buttons ──────────────────────────────────
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24.w),
+              child: Row(
+                children: [
+                  // Cancel
+                  Expanded(
+                    child: SizedBox(
+                      height: 52.h,
+                      child: OutlinedButton(
+                        onPressed: controller.onCancel,
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: SecondaryColor.neutral300),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.r)),
+                        ),
+                        child: Text(
+                          'Batal',
+                          style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w600, color: SecondaryColor.neutral600),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  // Confirm
+                  Expanded(
+                    child: SizedBox(
+                      height: 52.h,
+                      child: ElevatedButton(
+                        onPressed: controller.onConfirm,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xffE84E00),
+                          foregroundColor: SecondaryColor.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.r)),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          'Check Out',
+                          style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w700, color: SecondaryColor.white),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 36.h),
+          ],
+        ),
+      ),
+    );
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -74,6 +281,64 @@ class MainCheckInOutView extends GetView<MainCheckInOutController> {
 
             SizedBox(height: 16.h),
 
+            // ── Location status banner ──────────────────────
+            Obx(() {
+              final isChecking = controller.isCheckingLocation.value;
+              final isValid = controller.isLocationValid.value;
+
+              Color bannerColor;
+              IconData bannerIcon;
+              String bannerText;
+
+              if (isChecking) {
+                bannerColor = SecondaryColor.warning600;
+                bannerIcon = Icons.my_location_rounded;
+                bannerText = 'Memeriksa lokasi...';
+              } else if (isValid) {
+                bannerColor = SecondaryColor.success700;
+                bannerIcon = Icons.check_circle_rounded;
+                bannerText = 'Dalam radius ${controller.distanceFromBranch.value.toStringAsFixed(0)}m';
+              } else {
+                bannerColor = SecondaryColor.danger600;
+                bannerIcon = Icons.location_off_rounded;
+                bannerText =
+                    controller.locationError.value.isNotEmpty ? controller.locationError.value : 'Di luar radius kantor';
+              }
+
+              return Container(
+                margin: EdgeInsets.symmetric(horizontal: 20.w),
+                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+                decoration: BoxDecoration(
+                  color: bannerColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12.r),
+                  border: Border.all(color: bannerColor.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    if (isChecking)
+                      SizedBox(
+                        width: 16.w,
+                        height: 16.w,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: bannerColor),
+                      )
+                    else
+                      Icon(bannerIcon, size: 16.sp, color: bannerColor),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: Text(
+                        bannerText,
+                        style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w600, color: bannerColor),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+
+            SizedBox(height: 12.h),
+
             // ── Camera viewfinder ────────────────────────
             Expanded(child: Padding(padding: EdgeInsets.symmetric(horizontal: 20.w), child: _buildViewfinder(stage))),
 
@@ -85,7 +350,13 @@ class MainCheckInOutView extends GetView<MainCheckInOutController> {
             SizedBox(height: 20.h),
 
             // ── Action buttons ────────────────────────────
-            stage == CheckInStage.captured ? _buildConfirmButtons() : _buildCaptureButton(stage),
+            Obx(() {
+              final canCapture = controller.isLocationValid.value && !controller.isCheckingLocation.value;
+              if (stage == CheckInStage.captured) {
+                return _buildConfirmButtons();
+              }
+              return _buildCaptureButton(stage, enabled: canCapture);
+            }),
 
             SizedBox(height: 36.h),
           ],
@@ -103,8 +374,27 @@ class MainCheckInOutView extends GetView<MainCheckInOutController> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Camera grid
-          CustomPaint(painter: _GridPainter()),
+          // Camera preview or captured photo
+          if (stage == CheckInStage.captured && controller.capturedPhoto != null)
+            // Show captured photo
+            Image.file(File(controller.capturedPhoto!.path), fit: BoxFit.cover)
+          else if (!controller.isCheckOut)
+            // Show live camera preview
+            Obx(() {
+              if (controller.isCameraReady.value && controller.cameraController != null) {
+                return Transform.scale(
+                  scaleX: -1, // Mirror front camera
+                  child: CameraPreview(controller.cameraController!),
+                );
+              }
+              return const Center(child: CircularProgressIndicator(color: Colors.white54));
+            })
+          else
+            // Check-out: no camera, just dark background
+            CustomPaint(painter: _GridPainter()),
+
+          // Camera grid overlay (only during live preview)
+          if (stage != CheckInStage.captured) CustomPaint(painter: _GridPainter()),
 
           // Face oval
           Positioned.fill(child: _FaceOverlay(stage: stage, ringColor: _ringColor)),
@@ -173,6 +463,28 @@ class MainCheckInOutView extends GetView<MainCheckInOutController> {
     );
   }
 
+  // ── Submitting page (loading) ───────────────────────────────
+  Widget _buildSubmittingPage() {
+    return Scaffold(
+      backgroundColor: _bgColor,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(width: 48.w, height: 48.w, child: CircularProgressIndicator(strokeWidth: 4, color: _accentColor)),
+            SizedBox(height: 20.h),
+            Text(
+              controller.isCheckOut ? 'Memproses Check Out...' : 'Memproses Check In...',
+              style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600, color: SecondaryColor.neutral600),
+            ),
+            SizedBox(height: 8.h),
+            Text('Mohon tunggu sebentar', style: TextStyle(fontSize: 13.sp, color: SecondaryColor.neutral400)),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ── Status label ──────────────────────────────────────────
   Widget _buildStatusLabel(CheckInStage stage) {
     final text = switch (stage) {
@@ -194,18 +506,18 @@ class MainCheckInOutView extends GetView<MainCheckInOutController> {
   }
 
   // ── Capture button ────────────────────────────────────────
-  Widget _buildCaptureButton(CheckInStage stage) {
-    final enabled = stage == CheckInStage.idle;
+  Widget _buildCaptureButton(CheckInStage stage, {bool enabled = true}) {
+    final canTap = stage == CheckInStage.idle && enabled;
     return GestureDetector(
-      onTap: enabled ? controller.onCaptureButtonTap : null,
+      onTap: canTap ? controller.onCaptureButtonTap : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         width: 68.w,
         height: 68.w,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: enabled ? _accentColor : SecondaryColor.neutral300,
-          boxShadow: enabled ? [BoxShadow(color: _accentColor.withOpacity(0.45), blurRadius: 20, spreadRadius: 3)] : [],
+          color: canTap ? _accentColor : SecondaryColor.neutral300,
+          boxShadow: canTap ? [BoxShadow(color: _accentColor.withOpacity(0.45), blurRadius: 20, spreadRadius: 3)] : [],
         ),
         child: Icon(Icons.camera_alt_rounded, color: SecondaryColor.white, size: 30.sp),
       ),

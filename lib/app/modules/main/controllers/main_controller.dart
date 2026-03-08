@@ -23,12 +23,12 @@ class MainController extends GetxController {
 
   // ====== ROUTE MAPS per role (child dari /main) ======
   // Urutan list = urutan tab di bottom nav untuk role tsb.
-  List<String> generateRoutes(UserRole? role) {
+  List<String> generateRoutes(UserType? userType) {
     return [Routes.MAIN_HOME, Routes.MAIN_PERMIT, Routes.MAIN_HISTORY];
   }
 
   // ====== BUILD SIDEBAR (BOTTOM NAV) ITEMS SESUAI ROLE ======
-  List<BottomNavigationItemModel> _buildItems(UserRole? role) {
+  List<BottomNavigationItemModel> _buildItems(UserType? userType) {
     final items = <BottomNavigationItemModel>[];
 
     items.addAll([
@@ -63,8 +63,8 @@ class MainController extends GetxController {
 
   // ====== NAVIGASI ANTAR TAB ======
   void changePage(int index) {
-    final role = authController.pickRole.value;
-    final routes = generateRoutes(role);
+    final userType = authController.pickUserType.value;
+    final routes = generateRoutes(userType);
 
     // clamp index jika out of range
     final safeIndex = index.clamp(0, routes.length - 1);
@@ -84,8 +84,8 @@ class MainController extends GetxController {
 
   // Sinkronkan index saat deep-link / refresh web mengarah ke child tertentu
   void syncIndexFromLocation() {
-    final role = authController.pickRole.value;
-    final routes = generateRoutes(role);
+    final userType = authController.pickUserType.value;
+    final routes = generateRoutes(userType);
 
     final location = Get.rootDelegate.currentConfiguration?.location ?? '';
     // location contoh: /main/home, /main/report, ...
@@ -103,15 +103,15 @@ class MainController extends GetxController {
   void onInit() {
     super.onInit();
 
-    final role = authController.pickRole.value;
-    sidebarSettings.assignAll(_buildItems(role));
+    final userType = authController.pickUserType.value;
+    sidebarSettings.assignAll(_buildItems(userType));
 
     // Simpan disposer yang dikembalikan oleh ever()
-    _roleDisposer = ever(authController.pickRole, (UserRole? newRole) {
-      final newItems = _buildItems(newRole);
+    _roleDisposer = ever(authController.pickUserType, (UserType? newUserType) {
+      final newItems = _buildItems(newUserType);
       sidebarSettings.assignAll(newItems);
 
-      final routes = generateRoutes(newRole);
+      final routes = generateRoutes(newUserType);
       if (currentIndex.value >= routes.length) {
         currentIndex.value = 0;
       }

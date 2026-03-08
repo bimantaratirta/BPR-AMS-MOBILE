@@ -38,39 +38,56 @@ class MainPermitView extends GetView<MainPermitController> {
             ),
             // ── Scrollable form ────────────────────────────
             Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 20.h),
-                child: Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.all(20.w),
-                  decoration: BoxDecoration(
-                    color: SecondaryColor.white,
-                    borderRadius: BorderRadius.circular(20.r),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 14, offset: const Offset(0, 4)),
-                    ],
+              child: Obx(() {
+                return SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 20.h),
+                  child: Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(20.w),
+                    decoration: BoxDecoration(
+                      color: SecondaryColor.white,
+                      borderRadius: BorderRadius.circular(20.r),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 14, offset: const Offset(0, 4)),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildJenisIzin(),
+                        _buildValidationError('type'),
+                        SizedBox(height: 20.h),
+                        _buildDateRow(context),
+                        SizedBox(height: 20.h),
+                        _buildAlasan(),
+                        _buildValidationError('reason'),
+                        SizedBox(height: 20.h),
+                        _buildLampiran(),
+                        _buildValidationError('attachment'),
+                        SizedBox(height: 28.h),
+                        _buildSubmitButton(),
+                      ],
+                    ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildJenisIzin(),
-                      SizedBox(height: 20.h),
-                      _buildDateRow(context),
-                      SizedBox(height: 20.h),
-                      _buildAlasan(),
-                      SizedBox(height: 20.h),
-                      _buildLampiran(),
-                      SizedBox(height: 28.h),
-                      _buildSubmitButton(),
-                    ],
-                  ),
-                ),
-              ),
+                );
+              }),
             ),
           ],
         ),
       ),
       bottomNavigationBar: const BuildBottomNavigationBar(),
+    );
+  }
+
+  // ─────────────────────────────────────────────
+  // Validation Error Widget
+  // ─────────────────────────────────────────────
+  Widget _buildValidationError(String fieldKey) {
+    final error = controller.validationErrors[fieldKey];
+    if (error == null || error.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: EdgeInsets.only(top: 6.h),
+      child: Text(error, style: TextStyle(fontSize: 12.sp, color: SecondaryColor.danger600)),
     );
   }
 
@@ -83,13 +100,12 @@ class MainPermitView extends GetView<MainPermitController> {
       children: [
         _label('Jenis Izin'),
         SizedBox(height: 8.h),
-        Obx(
-          () => _dropdownField(
-            value: controller.selectedJenisIzin.value,
-            hint: 'Pilih jenis izin',
-            items: controller.jenisIzinOptions,
-            onChanged: controller.selectJenisIzin,
-          ),
+        _dropdownField(
+          value: controller.selectedJenisIzin.value,
+          hint: 'Pilih jenis izin',
+          items: controller.jenisIzinOptions,
+          onChanged: controller.selectJenisIzin,
+          hasError: controller.validationErrors.containsKey('type'),
         ),
       ],
     );
@@ -100,11 +116,12 @@ class MainPermitView extends GetView<MainPermitController> {
     required String hint,
     required List<String> items,
     required void Function(String?) onChanged,
+    bool hasError = false,
   }) {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 4.h),
-      decoration: _inputDecoration(),
+      decoration: _inputDecoration(hasError: hasError),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: value,
@@ -123,66 +140,74 @@ class MainPermitView extends GetView<MainPermitController> {
   // Tanggal Row
   // ─────────────────────────────────────────────
   Widget _buildDateRow(BuildContext context) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: _buildDateField(context, isMulai: true)),
-        SizedBox(width: 12.w),
-        Expanded(child: _buildDateField(context, isMulai: false)),
+        Row(
+          children: [
+            Expanded(child: _buildDateField(context, isMulai: true)),
+            SizedBox(width: 12.w),
+            Expanded(child: _buildDateField(context, isMulai: false)),
+          ],
+        ),
+        _buildValidationError('startDate'),
+        _buildValidationError('endDate'),
       ],
     );
   }
 
   Widget _buildDateField(BuildContext context, {required bool isMulai}) {
-    return Obx(() {
-      final date = isMulai ? controller.tanggalMulai.value : controller.tanggalSelesai.value;
-      final dateStr = date != null ? DateFormat('dd/MM/yyyy').format(date) : 'dd/mm/yyyy';
+    final date = isMulai ? controller.tanggalMulai.value : controller.tanggalSelesai.value;
+    final dateStr = date != null ? DateFormat('dd/MM/yyyy').format(date) : 'dd/mm/yyyy';
+    final fieldKey = isMulai ? 'startDate' : 'endDate';
+    final hasError = controller.validationErrors.containsKey(fieldKey);
 
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _label(isMulai ? 'Tanggal Mulai' : 'Tanggal Selesai'),
-          SizedBox(height: 8.h),
-          GestureDetector(
-            onTap: () => isMulai ? controller.pickTanggalMulai(context) : controller.pickTanggalSelesai(context),
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 13.h),
-              decoration: _inputDecoration(),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.calendar_today_outlined,
-                    size: 16.sp,
-                    color: date != null ? MainColor.blue2 : SecondaryColor.neutral400,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label(isMulai ? 'Tanggal Mulai' : 'Tanggal Selesai'),
+        SizedBox(height: 8.h),
+        GestureDetector(
+          onTap: () => isMulai ? controller.pickTanggalMulai(context) : controller.pickTanggalSelesai(context),
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 13.h),
+            decoration: _inputDecoration(hasError: hasError),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.calendar_today_outlined,
+                  size: 16.sp,
+                  color: date != null ? MainColor.blue2 : SecondaryColor.neutral400,
+                ),
+                SizedBox(width: 8.w),
+                Text(
+                  dateStr,
+                  style: TextStyle(
+                    fontSize: 13.sp,
+                    color: date != null ? SecondaryColor.neutral700 : SecondaryColor.neutral400,
+                    fontWeight: date != null ? FontWeight.w500 : FontWeight.w400,
                   ),
-                  SizedBox(width: 8.w),
-                  Text(
-                    dateStr,
-                    style: TextStyle(
-                      fontSize: 13.sp,
-                      color: date != null ? SecondaryColor.neutral700 : SecondaryColor.neutral400,
-                      fontWeight: date != null ? FontWeight.w500 : FontWeight.w400,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-        ],
-      );
-    });
+        ),
+      ],
+    );
   }
 
   // ─────────────────────────────────────────────
   // Alasan TextField
   // ─────────────────────────────────────────────
   Widget _buildAlasan() {
+    final hasError = controller.validationErrors.containsKey('reason');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _label('Alasan'),
         SizedBox(height: 8.h),
         Container(
-          decoration: _inputDecoration(),
+          decoration: _inputDecoration(hasError: hasError),
           child: TextField(
             controller: controller.alasanController,
             maxLines: 5,
@@ -276,34 +301,32 @@ class MainPermitView extends GetView<MainPermitController> {
   // Submit Button
   // ─────────────────────────────────────────────
   Widget _buildSubmitButton() {
-    return Obx(() {
-      final loading = controller.isLoading.value;
-      return SizedBox(
-        width: double.infinity,
-        height: 52.h,
-        child: ElevatedButton(
-          onPressed: loading ? null : controller.submitIzin,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: MainColor.blue2,
-            foregroundColor: SecondaryColor.white,
-            disabledBackgroundColor: MainColor.blueLight1,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.r)),
-            elevation: 0,
-          ),
-          child:
-              loading
-                  ? SizedBox(
-                    width: 22.w,
-                    height: 22.w,
-                    child: CircularProgressIndicator(color: SecondaryColor.white, strokeWidth: 2.5),
-                  )
-                  : Text(
-                    'Ajukan Izin',
-                    style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w700, color: SecondaryColor.white),
-                  ),
+    final loading = controller.isLoading.value;
+    return SizedBox(
+      width: double.infinity,
+      height: 52.h,
+      child: ElevatedButton(
+        onPressed: loading ? null : controller.submitIzin,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: MainColor.blue2,
+          foregroundColor: SecondaryColor.white,
+          disabledBackgroundColor: MainColor.blueLight1,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.r)),
+          elevation: 0,
         ),
-      );
-    });
+        child:
+            loading
+                ? SizedBox(
+                  width: 22.w,
+                  height: 22.w,
+                  child: CircularProgressIndicator(color: SecondaryColor.white, strokeWidth: 2.5),
+                )
+                : Text(
+                  'Ajukan Izin',
+                  style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w700, color: SecondaryColor.white),
+                ),
+      ),
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -313,11 +336,11 @@ class MainPermitView extends GetView<MainPermitController> {
     return Text(text, style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w600, color: SecondaryColor.neutral700));
   }
 
-  BoxDecoration _inputDecoration() {
+  BoxDecoration _inputDecoration({bool hasError = false}) {
     return BoxDecoration(
       color: SecondaryColor.neutral100,
       borderRadius: BorderRadius.circular(12.r),
-      border: Border.all(color: SecondaryColor.neutral300, width: 1),
+      border: Border.all(color: hasError ? SecondaryColor.danger600 : SecondaryColor.neutral300, width: hasError ? 1.5 : 1),
     );
   }
 }

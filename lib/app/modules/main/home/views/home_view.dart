@@ -1,5 +1,7 @@
 import 'package:bpr_ams/app/common/constant/app_colors.dart';
 import 'package:bpr_ams/app/routes/app_pages.dart';
+import 'package:bpr_ams/app/widgets/build_custom_painter.dart';
+import 'package:bpr_ams/app/widgets/build_custom_snackbar.dart';
 import 'package:bpr_ams/app/widgets/build_navigation/build_bottom_navigation_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -287,44 +289,128 @@ class HomeView extends GetView<HomeController> {
   // ─────────────────────────────────────────────
   Widget _buildCheckButton() {
     final checkedIn = controller.hasCheckedIn.value;
+    final inRadius = controller.isInRadius.value;
+    final isChecking = controller.isCheckingLocation.value;
 
     return Center(
-      child: GestureDetector(
-        onTap:
-            checkedIn
-                ? () => Get.toNamed('${Routes.MAIN}${Routes.MAIN_CHECK_IN_OUT}', arguments: {'isCheckOut': true})
-                : () => Get.toNamed('${Routes.MAIN}${Routes.MAIN_CHECK_IN_OUT}'),
-        child: Container(
-          width: 120.w,
-          height: 120.w,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: checkedIn ? [const Color(0xffFF8C42), const Color(0xffE84E00)] : [MainColor.blue3, MainColor.blue5],
-              center: Alignment.center,
-              radius: 0.85,
+      child: Column(
+        children: [
+          GestureDetector(
+            onTap: () {
+              if (isChecking) {
+                final ctx = Get.context;
+                if (ctx != null) {
+                  CustomSnackbar(message: 'Sedang memeriksa lokasi...', type: CustomSnackbarType.warning).show(ctx);
+                }
+                return;
+              }
+              if (!inRadius) {
+                final ctx = Get.context;
+                if (ctx != null) {
+                  final errorMsg =
+                      controller.locationErrorMessage.value.isNotEmpty
+                          ? controller.locationErrorMessage.value
+                          : 'Anda di luar radius kantor. Tidak dapat melakukan ${checkedIn ? "check out" : "check in"}.';
+                  CustomSnackbar(message: errorMsg, type: CustomSnackbarType.error).show(ctx);
+                }
+                return;
+              }
+              if (checkedIn) {
+                Get.toNamed('${Routes.MAIN}${Routes.MAIN_CHECK_IN_OUT}', arguments: {'isCheckOut': true});
+              } else {
+                Get.toNamed('${Routes.MAIN}${Routes.MAIN_CHECK_IN_OUT}');
+              }
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              width: 120.w,
+              height: 120.w,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors:
+                      !inRadius || isChecking
+                          ? [SecondaryColor.neutral400, SecondaryColor.neutral500]
+                          : checkedIn
+                          ? [const Color(0xffFF8C42), const Color(0xffE84E00)]
+                          : [MainColor.blue3, MainColor.blue5],
+                  center: Alignment.center,
+                  radius: 0.85,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: (!inRadius || isChecking
+                            ? SecondaryColor.neutral400
+                            : checkedIn
+                            ? const Color(0xffFF6B2C)
+                            : MainColor.blue2)
+                        .withOpacity(0.4),
+                    blurRadius: 24,
+                    spreadRadius: 4,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (isChecking)
+                    SizedBox(
+                      width: 36.w,
+                      height: 36.w,
+                      child: CircularProgressIndicator(strokeWidth: 3, color: SecondaryColor.white),
+                    )
+                  else
+                    Icon(
+                      !inRadius
+                          ? Icons.location_off_rounded
+                          : checkedIn
+                          ? Icons.logout_rounded
+                          : Icons.fingerprint_rounded,
+                      color: SecondaryColor.white,
+                      size: 48.sp,
+                    ),
+                  SizedBox(height: 6.h),
+                  Text(
+                    isChecking
+                        ? 'Cek Lokasi'
+                        : !inRadius
+                        ? 'Di Luar Area'
+                        : checkedIn
+                        ? 'Check Out'
+                        : 'Check In',
+                    style: TextStyle(color: SecondaryColor.white, fontWeight: FontWeight.w600, fontSize: 13.sp),
+                  ),
+                ],
+              ),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: (checkedIn ? const Color(0xffFF6B2C) : MainColor.blue2).withOpacity(0.4),
-                blurRadius: 24,
-                spreadRadius: 4,
-                offset: const Offset(0, 6),
-              ),
-            ],
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(checkedIn ? Icons.logout_rounded : Icons.fingerprint_rounded, color: SecondaryColor.white, size: 48.sp),
-              SizedBox(height: 6.h),
-              Text(
-                checkedIn ? 'Check Out' : 'Check In',
-                style: TextStyle(color: SecondaryColor.white, fontWeight: FontWeight.w600, fontSize: 13.sp),
+          if (!inRadius && !isChecking) ...[
+            SizedBox(height: 10.h),
+            GestureDetector(
+              onTap: () => controller.refreshLocation(),
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                decoration: BoxDecoration(
+                  color: SecondaryColor.white,
+                  borderRadius: BorderRadius.circular(20.r),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.refresh_rounded, size: 16.sp, color: MainColor.blue2),
+                    SizedBox(width: 6.w),
+                    Text(
+                      'Refresh Lokasi',
+                      style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w600, color: MainColor.blue2),
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
-        ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -333,7 +419,13 @@ class HomeView extends GetView<HomeController> {
   // Location Card
   // ─────────────────────────────────────────────
   Widget _buildLocationCard() {
-    final dotColor = controller.isInRadius.value ? SecondaryColor.success700 : SecondaryColor.danger600;
+    final isChecking = controller.isCheckingLocation.value;
+    final dotColor =
+        isChecking
+            ? SecondaryColor.warning600
+            : controller.isInRadius.value
+            ? SecondaryColor.success700
+            : SecondaryColor.danger600;
     final mapDotColor = controller.hasCheckedIn.value ? const Color(0xffFF6B2C) : MainColor.blue2;
 
     return Container(
@@ -383,7 +475,7 @@ class HomeView extends GetView<HomeController> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12.r),
                     child: CustomPaint(
-                      painter: _MapGridPainter(
+                      painter: BuildCustomPainter(
                         lineColor: controller.hasCheckedIn.value ? const Color(0xffE0CDB8) : const Color(0xffCDD8EE),
                       ),
                     ),
@@ -419,18 +511,48 @@ class HomeView extends GetView<HomeController> {
               ],
             ),
           ),
-          // Status chip
+          // Status chip + distance info
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Column(
               children: [
-                Container(width: 8.w, height: 8.w, decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle)),
-                SizedBox(width: 6.w),
-                Text(
-                  controller.isInRadius.value ? 'Dalam Radius' : 'Di Luar Radius',
-                  style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w600, color: dotColor),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (isChecking)
+                      SizedBox(
+                        width: 12.w,
+                        height: 12.w,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: SecondaryColor.warning600),
+                      )
+                    else
+                      Container(width: 8.w, height: 8.w, decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle)),
+                    SizedBox(width: 6.w),
+                    Text(
+                      isChecking
+                          ? 'Memeriksa lokasi...'
+                          : controller.isInRadius.value
+                          ? 'Dalam Radius'
+                          : 'Di Luar Radius',
+                      style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w600, color: dotColor),
+                    ),
+                  ],
                 ),
+                if (!isChecking && controller.distanceFromBranch.value > 0) ...[
+                  SizedBox(height: 4.h),
+                  Text(
+                    'Jarak: ${controller.distanceFromBranch.value.toStringAsFixed(0)}m dari kantor',
+                    style: TextStyle(fontSize: 11.sp, color: SecondaryColor.neutral500),
+                  ),
+                ],
+                if (!isChecking && controller.locationErrorMessage.value.isNotEmpty) ...[
+                  SizedBox(height: 4.h),
+                  Text(
+                    controller.locationErrorMessage.value,
+                    style: TextStyle(fontSize: 11.sp, color: SecondaryColor.danger600),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ],
             ),
           ),
@@ -449,26 +571,4 @@ class HomeView extends GetView<HomeController> {
       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
     );
   }
-}
-
-class _MapGridPainter extends CustomPainter {
-  final Color lineColor;
-  const _MapGridPainter({required this.lineColor});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint =
-        Paint()
-          ..color = lineColor
-          ..strokeWidth = 0.8;
-    for (double y = 0; y < size.height; y += 18) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-    for (double x = 0; x < size.width; x += 18) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _MapGridPainter old) => old.lineColor != lineColor;
 }

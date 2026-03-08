@@ -1,225 +1,64 @@
+import 'package:bpr_ams/app/data/modules/attendance/attendance_service.dart';
+import 'package:bpr_ams/app/data/modules/attendance/models/attendance_model.dart';
+import 'package:bpr_ams/app/data/modules/leave_request/leave_request_service.dart';
+import 'package:bpr_ams/app/data/modules/leave_request/models/leave_request_model.dart';
+import 'package:bpr_ams/app/modules/auth/controllers/auth_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
-// ── Model: Absensi ────────────────────────────────────────────
-class AbsensiRecord {
-  final DateTime date;
-  final String checkIn; // e.g. "07:55:12"
-  final String checkOut; // e.g. "17:02:45"
-  final String duration; // e.g. "8j 57m"
-  final bool isOnTime; // true = Tepat Waktu, false = Terlambat
-
-  const AbsensiRecord({
-    required this.date,
-    required this.checkIn,
-    required this.checkOut,
-    required this.duration,
-    required this.isOnTime,
-  });
-}
-
-// ── Model: Izin ──────────────────────────────────────────────
-enum IzinStatus { disetujui, menunggu, ditolak }
-
-class IzinRecord {
-  final String type; // e.g. "Izin Cuti"
-  final DateTime startDate;
-  final DateTime endDate;
-  final String reason;
-  final IzinStatus status;
-  final String? rejectionNote; // isi hanya kalau ditolak
-
-  const IzinRecord({
-    required this.type,
-    required this.startDate,
-    required this.endDate,
-    required this.reason,
-    required this.status,
-    this.rejectionNote,
-  });
-}
-
 // ── Controller ───────────────────────────────────────────────
 class MainHistoryController extends GetxController {
+  final AttendanceService _attendanceService = AttendanceService();
+  final LeaveRequestService _leaveRequestService = LeaveRequestService();
+  final AuthController _authController = Get.find<AuthController>();
+
   // ---- Tab (0 = Absensi, 1 = Izin)
   final RxInt selectedTab = 0.obs;
 
   // ---- Month navigation
-  final Rx<DateTime> selectedMonth = DateTime(2026, 2).obs;
+  final Rx<DateTime> selectedMonth = DateTime(2026, 3).obs;
 
-  // ---- Dummy datasets keyed by "yyyy-MM"
-  final Map<String, List<AbsensiRecord>> _absensiData = {
-    '2026-02': [
-      AbsensiRecord(
-        date: DateTime(2026, 2, 14),
-        checkIn: '07:55:12',
-        checkOut: '17:02:45',
-        duration: '8j 57m',
-        isOnTime: true,
-      ),
-      AbsensiRecord(
-        date: DateTime(2026, 2, 13),
-        checkIn: '08:15:18',
-        checkOut: '17:15:30',
-        duration: '8j 43m',
-        isOnTime: false,
-      ),
-      AbsensiRecord(
-        date: DateTime(2026, 2, 12),
-        checkIn: '07:50:44',
-        checkOut: '17:00:12',
-        duration: '9j 4m',
-        isOnTime: true,
-      ),
-      AbsensiRecord(
-        date: DateTime(2026, 2, 11),
-        checkIn: '08:10:05',
-        checkOut: '17:05:33',
-        duration: '8j 55m',
-        isOnTime: false,
-      ),
-      AbsensiRecord(
-        date: DateTime(2026, 2, 10),
-        checkIn: '08:02:19',
-        checkOut: '17:01:08',
-        duration: '8j 58m',
-        isOnTime: false,
-      ),
-      AbsensiRecord(
-        date: DateTime(2026, 2, 7),
-        checkIn: '07:45:00',
-        checkOut: '17:00:00',
-        duration: '9j 15m',
-        isOnTime: true,
-      ),
-      AbsensiRecord(
-        date: DateTime(2026, 2, 6),
-        checkIn: '07:58:33',
-        checkOut: '17:10:20',
-        duration: '9j 11m',
-        isOnTime: true,
-      ),
-      AbsensiRecord(
-        date: DateTime(2026, 2, 5),
-        checkIn: '07:52:01',
-        checkOut: '17:00:55',
-        duration: '9j 8m',
-        isOnTime: true,
-      ),
-      AbsensiRecord(
-        date: DateTime(2026, 2, 4),
-        checkIn: '08:20:00',
-        checkOut: '17:00:00',
-        duration: '8j 40m',
-        isOnTime: false,
-      ),
-      AbsensiRecord(
-        date: DateTime(2026, 2, 3),
-        checkIn: '07:48:00',
-        checkOut: '17:05:00',
-        duration: '9j 17m',
-        isOnTime: true,
-      ),
-    ],
-    '2026-01': [
-      AbsensiRecord(
-        date: DateTime(2026, 1, 30),
-        checkIn: '07:55:00',
-        checkOut: '17:00:00',
-        duration: '9j 5m',
-        isOnTime: true,
-      ),
-      AbsensiRecord(
-        date: DateTime(2026, 1, 29),
-        checkIn: '08:05:00',
-        checkOut: '17:00:00',
-        duration: '8j 55m',
-        isOnTime: false,
-      ),
-      AbsensiRecord(
-        date: DateTime(2026, 1, 28),
-        checkIn: '07:50:00',
-        checkOut: '17:00:00',
-        duration: '9j 10m',
-        isOnTime: true,
-      ),
-    ],
-  };
+  // ---- Loading states
+  final RxBool isLoadingAbsensi = false.obs;
+  final RxBool isLoadingIzin = false.obs;
 
-  final Map<String, List<IzinRecord>> _izinData = {
-    '2026-02': [
-      IzinRecord(
-        type: 'Izin Cuti',
-        startDate: DateTime(2026, 1, 10),
-        endDate: DateTime(2026, 1, 12),
-        reason: 'Acara keluarga',
-        status: IzinStatus.disetujui,
-      ),
-      IzinRecord(
-        type: 'Izin Sakit',
-        startDate: DateTime(2026, 1, 25),
-        endDate: DateTime(2026, 1, 26),
-        reason: 'Demam dan flu',
-        status: IzinStatus.disetujui,
-      ),
-      IzinRecord(
-        type: 'Izin Setengah Hari',
-        startDate: DateTime(2026, 2, 5),
-        endDate: DateTime(2026, 2, 5),
-        reason: 'Urusan pribadi',
-        status: IzinStatus.menunggu,
-      ),
-      IzinRecord(
-        type: 'Izin Cuti',
-        startDate: DateTime(2026, 2, 20),
-        endDate: DateTime(2026, 2, 22),
-        reason: 'Liburan keluarga',
-        status: IzinStatus.ditolak,
-        rejectionNote: 'Jadwal bertabrakan dengan audit cabang',
-      ),
-    ],
-    '2026-01': [
-      IzinRecord(
-        type: 'Izin Sakit',
-        startDate: DateTime(2026, 1, 5),
-        endDate: DateTime(2026, 1, 6),
-        reason: 'Sakit kepala',
-        status: IzinStatus.disetujui,
-      ),
-    ],
-  };
+  // ---- Data from API
+  final RxList<AttendanceModel> attendances = <AttendanceModel>[].obs;
+  final RxList<LeaveRequestModel> leaveRequests = <LeaveRequestModel>[].obs;
 
   // ── Computed: current month key ──
   String get _monthKey => DateFormat('yyyy-MM').format(selectedMonth.value);
 
   // ── Absensi list for selected month ──
-  List<AbsensiRecord> get absensiList => _absensiData[_monthKey] ?? [];
-
-  // ── Absensi summary ──
-  int get absensiHadir => absensiList.length;
-  int get absensiTerlambat => absensiList.where((r) => !r.isOnTime).length;
-  int get absensiAlpha => _alphaCount;
-  int get _alphaCount {
-    // Hitung hari kerja pada bulan tsb - jumlah record
+  List<AttendanceModel> get absensiList {
     final m = selectedMonth.value;
-    int workdays = 0;
-    final daysInMonth = DateUtils.getDaysInMonth(m.year, m.month);
-    for (int d = 1; d <= daysInMonth; d++) {
-      final wd = DateTime(m.year, m.month, d).weekday;
-      if (wd != DateTime.saturday && wd != DateTime.sunday) workdays++;
-    }
-    return (workdays - absensiList.length).clamp(0, 99);
+    return attendances.where((r) {
+        if (r.date == null) return false;
+        return r.date!.year == m.year && r.date!.month == m.month;
+      }).toList()
+      ..sort((a, b) => (b.date ?? DateTime(0)).compareTo(a.date ?? DateTime(0)));
   }
 
-  // ── Izin list for selected month ──
-  List<IzinRecord> get izinList => _izinData[_monthKey] ?? [];
+  // ── Absensi summary ──
+  int get absensiHadir => absensiList.where((r) => r.status == 'HADIR').length;
+  int get absensiTerlambat => absensiList.where((r) => r.status == 'TERLAMBAT').length;
+  int get absensiAlpha => absensiList.where((r) => r.status == 'ALPHA').length;
+
+  // ── Izin list for selected month (filtered from API data) ──
+  List<LeaveRequestModel> get izinList {
+    final m = selectedMonth.value;
+    return leaveRequests.where((r) {
+      if (r.startDate == null) return false;
+      return r.startDate!.year == m.year && r.startDate!.month == m.month;
+    }).toList();
+  }
 
   // ── Izin summary ──
-  int get izinDisetujui => izinList.where((r) => r.status == IzinStatus.disetujui).length;
-  int get izinMenunggu => izinList.where((r) => r.status == IzinStatus.menunggu).length;
-  int get izinDitolak => izinList.where((r) => r.status == IzinStatus.ditolak).length;
+  int get izinDisetujui => izinList.where((r) => r.status == 'APPROVED').length;
+  int get izinMenunggu => izinList.where((r) => r.status == 'PENDING').length;
+  int get izinDitolak => izinList.where((r) => r.status == 'REJECTED').length;
 
   // ── Month display string ──
   String get monthDisplay {
@@ -231,18 +70,145 @@ class MainHistoryController extends GetxController {
   void prevMonth() {
     final m = selectedMonth.value;
     selectedMonth.value = DateTime(m.year, m.month - 1);
+    _fetchCurrentTabData();
   }
 
   void nextMonth() {
     final m = selectedMonth.value;
     selectedMonth.value = DateTime(m.year, m.month + 1);
+    _fetchCurrentTabData();
   }
 
-  void selectTab(int index) => selectedTab.value = index;
+  void selectTab(int index) {
+    selectedTab.value = index;
+    _fetchCurrentTabData();
+  }
+
+  void _fetchCurrentTabData() {
+    if (selectedTab.value == 0) {
+      fetchAttendances();
+    } else {
+      fetchLeaveRequests();
+    }
+  }
+
+  // ── Fetch attendance data from API ──
+  Future<void> fetchAttendances() async {
+    isLoadingAbsensi.value = true;
+
+    final employeeId = _authController.employee.value?.id;
+    if (employeeId == null) {
+      isLoadingAbsensi.value = false;
+      return;
+    }
+
+    try {
+      final response = await _attendanceService.getAttendances(queryParameters: {'employeeId': employeeId});
+
+      if ((response.code == 200 || response.code == 201) && response.data != null) {
+        attendances.value = response.data!;
+      }
+    } catch (_) {
+      // Silently handle error
+    } finally {
+      isLoadingAbsensi.value = false;
+    }
+  }
+
+  // ── Fetch leave requests from API ──
+  Future<void> fetchLeaveRequests() async {
+    isLoadingIzin.value = true;
+
+    final employeeId = _authController.employee.value?.id;
+    if (employeeId == null) {
+      isLoadingIzin.value = false;
+      return;
+    }
+
+    try {
+      final response = await _leaveRequestService.getLeaveRequests(queryParameters: {'employeeId': employeeId});
+
+      if ((response.code == 200 || response.code == 201) && response.data != null) {
+        leaveRequests.value = response.data!;
+      }
+    } catch (_) {
+      // Silently handle error
+    } finally {
+      isLoadingIzin.value = false;
+    }
+  }
+
+  // ── Helper: Map attendance status to display label ──
+  static String attendanceStatusLabel(String? status) {
+    switch (status) {
+      case 'HADIR':
+        return 'Tepat Waktu';
+      case 'TERLAMBAT':
+        return 'Terlambat';
+      case 'IZIN_CUTI':
+        return 'Izin Cuti';
+      case 'IZIN_SAKIT':
+        return 'Izin Sakit';
+      case 'IZIN_SETENGAH_HARI':
+        return 'Izin Setengah Hari';
+      case 'ALPHA':
+        return 'Alpha';
+      default:
+        return status ?? '-';
+    }
+  }
+
+  // ── Helper: Map leave type to display label ──
+  static String leaveTypeLabel(String? type) {
+    switch (type) {
+      case 'IZIN_CUTI':
+        return 'Izin Cuti';
+      case 'IZIN_SAKIT':
+        return 'Izin Sakit';
+      case 'IZIN_SETENGAH_HARI':
+        return 'Izin Setengah Hari';
+      default:
+        return type ?? '-';
+    }
+  }
+
+  // ── Helper: Map leave status to display label ──
+  static String leaveStatusLabel(String? status) {
+    switch (status) {
+      case 'APPROVED':
+        return 'Disetujui';
+      case 'PENDING':
+        return 'Menunggu';
+      case 'REJECTED':
+        return 'Ditolak';
+      default:
+        return status ?? '-';
+    }
+  }
+
+  // ── Helper: Format duration from minutes ──
+  static String formatDuration(int? minutes) {
+    if (minutes == null) return '-';
+    final hours = minutes ~/ 60;
+    final mins = minutes % 60;
+    return '${hours}j ${mins}m';
+  }
+
+  // ── Helper: Format time from DateTime ──
+  static String formatTime(DateTime? dateTime) {
+    if (dateTime == null) return '--:--:--';
+    return DateFormat('HH:mm:ss').format(dateTime);
+  }
 
   @override
   void onInit() {
     super.onInit();
     initializeDateFormatting('id_ID', null);
+    // Set bulan ke bulan ini
+    final now = DateTime.now();
+    selectedMonth.value = DateTime(now.year, now.month);
+
+    // Fetch initial data
+    fetchAttendances();
   }
 }

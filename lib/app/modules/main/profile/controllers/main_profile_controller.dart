@@ -7,11 +7,19 @@ class MainProfileController extends GetxController {
   final authController = Get.find<AuthController>();
 
   // ── User info getters ─────────────────────────────────────
-  String get name => authController.user.value?.name ?? '-';
-  String get email => '${(authController.user.value?.username ?? 'user').toLowerCase().replaceAll(' ', '.')}.bpr.co.id';
-  String get nik => authController.user.value?.username ?? '-';
-  String get role => authController.user.value?.role ?? '-';
-  String get branch => authController.user.value?.branch?.branch ?? '-';
+  String get name =>
+      authController.pickUserType.value == UserType.employee
+          ? authController.employee.value?.name ?? '-'
+          : authController.admin.value?.name ?? '-';
+  String get email =>
+      authController.pickUserType.value == UserType.employee
+          ? authController.employee.value?.email ?? '-'
+          : authController.admin.value?.email ?? '-';
+  String get nik => authController.pickUserType.value == UserType.employee ? authController.employee.value?.nik ?? '-' : '-';
+  String get role =>
+      authController.pickUserType.value == UserType.employee ? authController.employee.value?.role ?? '-' : '-';
+  String get branch =>
+      authController.pickUserType.value == UserType.employee ? authController.employee.value?.branch?.name ?? '-' : '-';
 
   // ── Menu actions ──────────────────────────────────────────
   void onNotifikasiTap() {

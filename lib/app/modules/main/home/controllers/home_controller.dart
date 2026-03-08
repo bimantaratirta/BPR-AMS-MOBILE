@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:bpr_ams/app/common/utils/location_service.dart';
 import 'package:bpr_ams/app/modules/auth/controllers/auth_controller.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -11,12 +12,19 @@ class HomeController extends GetxController {
   // ---- Live clock
   final RxString currentTime = ''.obs;
   Timer? _timer;
+  Timer? _locationTimer;
 
   // ---- Derived from user
-  String get userName => authController.user.value?.name ?? '-';
-  String get userNik => authController.user.value?.username ?? '-';
-  String get userRole => authController.user.value?.role ?? '-';
-  String get userBranch => authController.user.value?.branch?.branch ?? '-';
+  String get userName =>
+      authController.pickUserType.value == UserType.employee
+          ? authController.employee.value?.name ?? '-'
+          : authController.admin.value?.name ?? '-';
+  String get userNik =>
+      authController.pickUserType.value == UserType.employee ? authController.employee.value?.nik ?? '-' : '-';
+  String get userRole =>
+      authController.pickUserType.value == UserType.employee ? authController.employee.value?.role ?? '-' : '-';
+  String get userBranch =>
+      authController.pickUserType.value == UserType.employee ? authController.employee.value?.branch?.name ?? '-' : '-';
 
   // ---- Greeting / header
   String get greeting {
@@ -43,7 +51,15 @@ class HomeController extends GetxController {
 
   // ---- Check-in state
   final RxBool hasCheckedIn = false.obs;
-  final RxBool isInRadius = true.obs;
+  final RxBool isInRadius = false.obs;
+
+  // ---- Location state
+  final RxBool isCheckingLocation = true.obs;
+  final RxString locationErrorMessage = ''.obs;
+  final RxDouble distanceFromBranch = 0.0.obs;
+
+  /// ID attendance record saat ini (dari API response)
+  final RxnString attendanceId = RxnString();
 
   /// Waktu ketika user melakukan check-in
   DateTime? checkInTime;
@@ -67,6 +83,10 @@ class HomeController extends GetxController {
     initializeDateFormatting('id_ID', null);
     _updateTime();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _updateTime());
+
+    // Cek lokasi saat init dan periodik setiap 30 detik
+    _checkLocationRadius();
+    _locationTimer = Timer.periodic(const Duration(seconds: 30), (_) => _checkLocationRadius());
   }
 
   void _updateTime() {
@@ -80,6 +100,46 @@ class HomeController extends GetxController {
       final minutes = diff.inMinutes % 60;
       workDuration.value = '${hours}j ${minutes}m';
     }
+  }
+
+  /// Memeriksa apakah device berada dalam radius branch.
+  Future<void> _checkLocationRadius() async {
+    final employee = authController.employee.value;
+    final branch = employee?.branch;
+
+    // Hanya untuk employee yang punya data branch lengkap
+    if (authController.pickUserType.value != UserType.employee ||
+        branch == null ||
+        branch.latitude == null ||
+        branch.longitude == null ||
+        branch.radius == null) {
+      isInRadius.value = true; // default true jika bukan employee / tidak ada data branch
+      isCheckingLocation.value = false;
+      return;
+    }
+
+    isCheckingLocation.value = true;
+    locationErrorMessage.value = '';
+
+    final result = await LocationService.checkRadius(
+      branchLat: branch.latitude!,
+      branchLng: branch.longitude!,
+      radiusInMeters: branch.radius!,
+    );
+
+    isInRadius.value = result.isInRadius;
+    distanceFromBranch.value = result.distance;
+
+    if (result.error != null) {
+      locationErrorMessage.value = result.error!;
+    }
+
+    isCheckingLocation.value = false;
+  }
+
+  /// Refresh lokasi manual (bisa dipanggil dari UI)
+  Future<void> refreshLocation() async {
+    await _checkLocationRadius();
   }
 
   void onCheckInTap() {
@@ -114,6 +174,7 @@ class HomeController extends GetxController {
   @override
   void onClose() {
     _timer?.cancel();
+    _locationTimer?.cancel();
     super.onClose();
   }
 }

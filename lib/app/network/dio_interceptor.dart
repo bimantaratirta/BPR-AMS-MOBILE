@@ -70,25 +70,25 @@ class DioInterceptor extends Interceptor {
     if (err.response?.statusCode == 401) {
       try {
         // Check if the error happened while trying to refresh the token
-        if (err.requestOptions.path.contains(AppConstants.refreshTokenEndpoint)) {
-          // If refreshing token also fails, require re-login
-          await StorageClient.clearSession();
-          await _redirectToLogin();
-          return handler.reject(err);
-        }
+        // if (err.requestOptions.path.contains(AppConstants.refreshTokenEndpoint)) {
+        //   // If refreshing token also fails, require re-login
+        //   await StorageClient.clearSession();
+        //   await _redirectToLogin();
+        //   return handler.reject(err);
+        // }
 
         // Try to refresh JWT token
-        final refreshToken = StorageClient.getRefreshToken();
-        if (refreshToken != null) {
-          await _refreshJWTToken();
+        // final refreshToken = StorageClient.getRefreshToken();
+        // if (refreshToken != null) {
+        // await _refreshJWTToken();
 
-          // Retry the original request with new JWT token
-          final response = await _retryRequestWithJWT(err.requestOptions);
-          return handler.resolve(response);
-        } else {
-          await _redirectToLogin();
-          return handler.reject(err);
-        }
+        // Retry the original request with new JWT token
+        // final response = await _retryRequestWithJWT(err.requestOptions);
+        // return handler.resolve(response);
+        // } else {
+        await _redirectToLogin();
+        return handler.reject(err);
+        // }
       } catch (e) {
         // Refresh token failed, redirect to login
         await StorageClient.clearSession();
@@ -101,28 +101,28 @@ class DioInterceptor extends Interceptor {
   }
 
   // Method to refresh JWT token
-  Future<void> _refreshJWTToken() async {
-    final refreshToken = StorageClient.getRefreshToken();
+  // Future<void> _refreshJWTToken() async {
+  //   final refreshToken = StorageClient.getRefreshToken();
 
-    try {
-      final response = await dio.post(
-        '${AppConstants.baseApiUrl}${AppConstants.refreshTokenEndpoint}',
-        options: Options(headers: {'Authorization': 'Bearer $refreshToken'}),
-      );
+  //   try {
+  //     final response = await dio.post(
+  //       '${AppConstants.baseApiUrl}${AppConstants.refreshTokenEndpoint}',
+  //       options: Options(headers: {'Authorization': 'Bearer $refreshToken'}),
+  //     );
 
-      if (response.statusCode == 200 && response.data != null) {
-        // Save new JWT tokens
-        final data = response.data['data'];
-        if (data != null && data['access_token'] != null) {
-          await StorageClient.saveToken(data['access_token'], data['refresh_token'] ?? refreshToken);
-        }
-      }
-    } catch (e) {
-      // If refresh fails, clear session and require re-login
-      await StorageClient.clearSession();
-      rethrow;
-    }
-  }
+  //     if (response.statusCode == 200 && response.data != null) {
+  //       // Save new JWT tokens
+  //       final data = response.data['data'];
+  //       if (data != null && data['access_token'] != null) {
+  //         await StorageClient.saveToken(data['access_token'], data['refresh_token'] ?? refreshToken);
+  //       }
+  //     }
+  //   } catch (e) {
+  //     // If refresh fails, clear session and require re-login
+  //     await StorageClient.clearSession();
+  //     rethrow;
+  //   }
+  // }
 
   // Method to retry failed request with JWT
   Future<Response<dynamic>> _retryRequestWithJWT(RequestOptions requestOptions) async {

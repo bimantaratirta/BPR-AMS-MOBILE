@@ -1,6 +1,5 @@
 import 'package:bpr_ams/app/common/constant/app_colors.dart';
 import 'package:bpr_ams/app/common/constant/app_assets.dart';
-import 'package:bpr_ams/app/routes/app_pages.dart';
 import 'package:bpr_ams/app/widgets/build_custom_text_form_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -51,25 +50,25 @@ class AuthLoginView extends GetView<AuthLoginController> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Username",
+                        "Email",
                         style: Get.textTheme.labelMedium!.copyWith(letterSpacing: 1, fontWeight: FontWeight.w600),
                       ),
                       SizedBox(height: 8),
                       BuildCustomTextFormField(
-                        hintText: "Masukkan username...",
-                        controller: controller.usernameController,
+                        hintText: "Masukkan email...",
+                        controller: controller.emailController,
                         maxLines: 1,
                         isReadOnly: false,
                         isEnable: true,
                         withInputFormatter: false,
                       ),
-                      controller.validationErrors['username'] != null
+                      controller.validationErrors['email'] != null
                           ? Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               SizedBox(height: 8),
                               Text(
-                                controller.validationErrors['username'] ?? '',
+                                controller.validationErrors['email'] ?? '',
                                 style: Get.textTheme.bodySmall!.copyWith(color: Colors.red),
                               ),
                             ],
@@ -118,9 +117,8 @@ class AuthLoginView extends GetView<AuthLoginController> {
                   Obx(() {
                     final isFormValid = controller.isFormValid.value;
 
-                    // final VoidCallback? action =
-                    //     (isFormValid && !controller.isLoading.value) ? () => controller.login(context) : null;
-                    final VoidCallback action = () => Get.offAllNamed(Routes.MAIN);
+                    final VoidCallback? action =
+                        (isFormValid && !controller.isLoading.value) ? () => controller.login(context) : null;
 
                     return ElevatedButton(
                       onPressed: action,
