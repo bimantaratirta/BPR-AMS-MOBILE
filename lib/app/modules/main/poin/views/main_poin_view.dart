@@ -1,4 +1,5 @@
 import 'package:bpr_ams/app/common/constant/app_colors.dart';
+import 'package:bpr_ams/app/data/modules/point_record/models/point_record_model.dart';
 import 'package:bpr_ams/app/modules/main/poin/controllers/main_poin_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -281,6 +282,15 @@ class MainPoinView extends GetView<MainPoinController> {
   // Riwayat list
   // ─────────────────────────────────────────────
   Widget _buildRiwayatList() {
+    if (controller.isLoading.value) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 40.h),
+          child: CircularProgressIndicator(color: MainColor.blue2),
+        ),
+      );
+    }
+
     final list = controller.records;
     if (list.isEmpty) {
       return Center(
@@ -303,8 +313,12 @@ class MainPoinView extends GetView<MainPoinController> {
     return Column(children: list.map((r) => _buildPoinCard(r)).toList());
   }
 
-  Widget _buildPoinCard(PoinRecord r) {
+  Widget _buildPoinCard(PointRecordModel r) {
     initializeDateFormatting('id_ID', null);
+
+    final status = controller.getStatus(r.type);
+    final label = controller.getLabel(r.type);
+    final poin = r.points ?? 0;
 
     final Color borderColor;
     final Color iconColor;
@@ -312,20 +326,20 @@ class MainPoinView extends GetView<MainPoinController> {
     final Color poinColor;
     final String poinStr;
 
-    switch (r.status) {
+    switch (status) {
       case PoinStatus.tepatWaktu:
         borderColor = SecondaryColor.success700;
         iconColor = SecondaryColor.success700;
         icon = Icons.check_circle_outline_rounded;
         poinColor = SecondaryColor.success700;
-        poinStr = '+${r.poin % 1 == 0 ? r.poin.toInt() : r.poin}';
+        poinStr = '+$poin';
         break;
       case PoinStatus.setengahPoin:
         borderColor = SecondaryColor.warning600;
         iconColor = SecondaryColor.warning600;
         icon = Icons.access_time_rounded;
         poinColor = SecondaryColor.warning600;
-        poinStr = '+${r.poin}';
+        poinStr = '+$poin';
         break;
       case PoinStatus.terlambat:
         borderColor = SecondaryColor.neutral300;
@@ -343,8 +357,8 @@ class MainPoinView extends GetView<MainPoinController> {
         break;
     }
 
-    final dateStr = DateFormat('d MMM yyyy', 'id_ID').format(r.date);
-    final timeStr = r.checkInTime != null ? ' • ${r.checkInTime}' : '';
+    final dateStr = r.date != null ? DateFormat('d MMM yyyy', 'id_ID').format(r.date!.toLocal()) : '-';
+    final timeStr = r.checkInTime != null ? ' • ${controller.getCheckInTimeDisplay(r)}' : '';
 
     return Container(
       margin: EdgeInsets.only(bottom: 10.h),
@@ -365,7 +379,7 @@ class MainPoinView extends GetView<MainPoinController> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    r.label,
+                    label,
                     style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w700, color: SecondaryColor.neutral700),
                   ),
                   SizedBox(height: 4.h),

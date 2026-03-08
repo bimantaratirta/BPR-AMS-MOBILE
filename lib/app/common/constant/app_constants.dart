@@ -13,6 +13,7 @@ class AppConstants {
   static const String checkInPathApi = "/attendances/checkin";
   static const String checkOutPathApi = "/attendances/checkout";
   static const String leaveRequestPathApi = "/leave-requests";
+  static const String pointRecordPathApi = "/point-records";
 
   // Storage Keys
   static const String userKey = "user_data";

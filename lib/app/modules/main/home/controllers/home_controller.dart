@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bpr_ams/app/common/utils/location_service.dart';
+import 'package:bpr_ams/app/data/modules/point_record/point_record_service.dart';
 import 'package:bpr_ams/app/modules/auth/controllers/auth_controller.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -8,6 +9,7 @@ import 'package:intl/date_symbol_data_local.dart';
 
 class HomeController extends GetxController {
   final authController = Get.find<AuthController>();
+  final _pointRecordService = PointRecordService();
 
   // ---- Live clock
   final RxString currentTime = ''.obs;
@@ -46,8 +48,9 @@ class HomeController extends GetxController {
   // ---- Date display (Rabu, 25 Februari 2026)
   final RxString currentDateDisplay = ''.obs;
 
-  // ---- Attendance points (placeholder)
-  final RxDouble attendancePoints = 15.5.obs;
+  // ---- Attendance points
+  final RxDouble attendancePoints = 0.0.obs;
+  final RxBool isLoadingPoints = true.obs;
 
   // ---- Check-in state
   final RxBool hasCheckedIn = false.obs;
@@ -87,6 +90,9 @@ class HomeController extends GetxController {
     // Cek lokasi saat init dan periodik setiap 30 detik
     _checkLocationRadius();
     _locationTimer = Timer.periodic(const Duration(seconds: 30), (_) => _checkLocationRadius());
+
+    // Fetch total poin dari API
+    _fetchTotalPoints();
   }
 
   void _updateTime() {
@@ -140,6 +146,31 @@ class HomeController extends GetxController {
   /// Refresh lokasi manual (bisa dipanggil dari UI)
   Future<void> refreshLocation() async {
     await _checkLocationRadius();
+  }
+
+  /// Fetch total poin kehadiran dari API
+  Future<void> _fetchTotalPoints() async {
+    final employee = authController.employee.value;
+    if (authController.pickUserType.value != UserType.employee || employee == null) {
+      isLoadingPoints.value = false;
+      return;
+    }
+
+    isLoadingPoints.value = true;
+
+    final response = await _pointRecordService.getPointRecords(queryParameters: {'employeeId': employee.id});
+
+    if (response.data != null) {
+      final total = response.data!.fold<int>(0, (sum, r) => sum + (r.points ?? 0));
+      attendancePoints.value = total.toDouble();
+    }
+
+    isLoadingPoints.value = false;
+  }
+
+  /// Refresh poin (dipanggil setelah check-in berhasil)
+  Future<void> refreshPoints() async {
+    await _fetchTotalPoints();
   }
 
   void onCheckInTap() {
