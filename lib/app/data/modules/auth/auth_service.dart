@@ -27,6 +27,11 @@ class AuthService {
           _authController.pickUserType.value = userType;
           await StorageClient.saveToken(token.accessToken!, token.refreshToken!);
 
+          // Simpan userType dan expiry untuk auto-login
+          if (userType != null) await StorageClient.saveUserType(userType.value);
+          final exp = jwtPayload?['exp'];
+          if (exp != null) await StorageClient.saveTokenExpiry((exp as num).toInt());
+
           final meResponse = await _employeeService.getEmployeeById(jwtPayload?['id'] as String? ?? '');
           if ((meResponse.code == 200 || meResponse.code == 201) && meResponse.data != null) {
             _authController.employee.value = meResponse.data;
@@ -73,6 +78,11 @@ class AuthService {
           final userType = UserType.fromString(jwtPayload?['userType'] as String?);
           _authController.pickUserType.value = userType;
           await StorageClient.saveToken(token.accessToken!, token.refreshToken!);
+
+          // Simpan userType dan expiry untuk auto-login
+          if (userType != null) await StorageClient.saveUserType(userType.value);
+          final exp = jwtPayload?['exp'];
+          if (exp != null) await StorageClient.saveTokenExpiry((exp as num).toInt());
 
           final meResponse = await _adminService.getAdminById(jwtPayload?['id'] as String? ?? '');
           if ((meResponse.code == 200 || meResponse.code == 201) && meResponse.data != null) {
