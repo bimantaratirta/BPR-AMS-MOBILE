@@ -71,8 +71,9 @@ class MainCheckInOutController extends GetxController with GetTickerProviderStat
     if (isCheckOut) return '';
     // Use status from API response if available
     if (responseStatus != null) {
-      return responseStatus == 'TEPAT_WAKTU' ? 'Tepat Waktu' : 'Terlambat';
+      return HomeController.statusLabel(responseStatus);
     }
+    // Fallback local calculation
     final isOnTime = actionTime.hour < 8 || (actionTime.hour == 8 && actionTime.minute == 0);
     return isOnTime ? 'Tepat Waktu' : 'Terlambat';
   }
@@ -126,8 +127,12 @@ class MainCheckInOutController extends GetxController with GetTickerProviderStat
     // Validasi lokasi saat masuk halaman
     _validateLocation();
 
-    // Initialize camera (only for check-in, not for check-out)
-    if (!isCheckOut) {
+    if (isCheckOut) {
+      // Check-out: langsung ke halaman konfirmasi tanpa kamera
+      actionTime = DateTime.now();
+      stage.value = CheckInStage.confirmCheckOut;
+    } else {
+      // Check-in: inisialisasi kamera
       _initCamera();
     }
   }
@@ -361,9 +366,9 @@ class MainCheckInOutController extends GetxController with GetTickerProviderStat
       home.checkInTime = actionTime;
       home.checkInTimeDisplay.value = '${DateFormat('HH:mm:ss').format(actionTime)} WIB';
 
-      // Use API response status
+      // Use API response status via statusLabel
       if (response.data?.status != null) {
-        home.checkInStatus.value = response.data!.status == 'TEPAT_WAKTU' ? 'Tepat Waktu' : 'Terlambat';
+        home.checkInStatus.value = HomeController.statusLabel(response.data!.status);
       } else {
         final isOnTime = actionTime.hour < 8 || (actionTime.hour == 8 && actionTime.minute == 0);
         home.checkInStatus.value = isOnTime ? 'Tepat Waktu' : 'Terlambat';
@@ -404,12 +409,9 @@ class MainCheckInOutController extends GetxController with GetTickerProviderStat
 
     if (Get.isRegistered<HomeController>()) {
       final home = Get.find<HomeController>();
-      home.hasCheckedIn.value = false;
-      home.checkInTime = null;
-      home.checkInTimeDisplay.value = '';
-      home.checkInStatus.value = '';
-      home.workDuration.value = '';
-      home.attendanceId.value = null;
+      home.hasCheckedOut.value = true;
+      // Re-fetch dari API agar data check-out terupdate
+      home.refreshTodayAttendance();
     }
 
     // Auto-back after 4 seconds

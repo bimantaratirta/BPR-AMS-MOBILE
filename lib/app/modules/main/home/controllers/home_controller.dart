@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:bpr_ams/app/common/utils/location_service.dart';
+import 'package:bpr_ams/app/data/modules/attendance/attendance_service.dart';
+import 'package:bpr_ams/app/data/modules/attendance/models/attendance_model.dart';
 import 'package:bpr_ams/app/data/modules/point_record/point_record_service.dart';
 import 'package:bpr_ams/app/modules/auth/controllers/auth_controller.dart';
 import 'package:get/get.dart';
@@ -10,6 +12,7 @@ import 'package:intl/date_symbol_data_local.dart';
 class HomeController extends GetxController {
   final authController = Get.find<AuthController>();
   final _pointRecordService = PointRecordService();
+  final _attendanceService = AttendanceService();
 
   // ---- Live clock
   final RxString currentTime = ''.obs;
@@ -52,14 +55,19 @@ class HomeController extends GetxController {
   final RxDouble attendancePoints = 0.0.obs;
   final RxBool isLoadingPoints = true.obs;
 
-  // ---- Check-in state
+  // ---- Check-in / Check-out state
   final RxBool hasCheckedIn = false.obs;
+  final RxBool hasCheckedOut = false.obs;
   final RxBool isInRadius = false.obs;
+  final RxBool isLoadingAttendance = true.obs;
 
   // ---- Location state
   final RxBool isCheckingLocation = true.obs;
   final RxString locationErrorMessage = ''.obs;
   final RxDouble distanceFromBranch = 0.0.obs;
+
+  /// Data attendance hari ini (null jika belum check-in)
+  final Rx<AttendanceModel?> todayAttendance = Rx<AttendanceModel?>(null);
 
   /// ID attendance record saat ini (dari API response)
   final RxnString attendanceId = RxnString();
@@ -70,15 +78,34 @@ class HomeController extends GetxController {
   /// Jam check-in yang ditampilkan, contoh: "07:55:12 WIB"
   final RxString checkInTimeDisplay = ''.obs;
 
-  /// Status ketepatan waktu: "Tepat Waktu" / "Terlambat"
+  /// Jam check-out yang ditampilkan, contoh: "17:01:45 WIB"
+  final RxString checkOutTimeDisplay = ''.obs;
+
+  /// Status attendance (dari enum API): "Tepat Waktu", "Terlambat", dst.
   final RxString checkInStatus = ''.obs;
 
   /// Durasi kerja sejak check-in, contoh: "8j 34m"
   final RxString workDuration = ''.obs;
 
-  // ---- Jam check-in dianggap tepat waktu jika <= 08:00
-  static const int _onTimeLimitHour = 8;
-  static const int _onTimeLimitMinute = 0;
+  /// Mapping enum status API ke label tampilan
+  static String statusLabel(String? apiStatus) {
+    switch (apiStatus) {
+      case 'HADIR':
+        return 'Tepat Waktu';
+      case 'TERLAMBAT':
+        return 'Terlambat';
+      case 'IZIN_CUTI':
+        return 'Izin / Cuti';
+      case 'IZIN_SAKIT':
+        return 'Izin Sakit';
+      case 'IZIN_SETENGAH_HARI':
+        return '½ Hari';
+      case 'ALPHA':
+        return 'Alpha';
+      default:
+        return apiStatus ?? '-';
+    }
+  }
 
   @override
   void onInit() {
@@ -91,7 +118,8 @@ class HomeController extends GetxController {
     _checkLocationRadius();
     _locationTimer = Timer.periodic(const Duration(seconds: 30), (_) => _checkLocationRadius());
 
-    // Fetch total poin dari API
+    // Fetch data attendance hari ini & total poin dari API
+    _fetchTodayAttendance();
     _fetchTotalPoints();
   }
 
@@ -148,6 +176,68 @@ class HomeController extends GetxController {
     await _checkLocationRadius();
   }
 
+  /// Fetch data attendance hari ini dari API
+  Future<void> _fetchTodayAttendance() async {
+    final employee = authController.employee.value;
+    if (authController.pickUserType.value != UserType.employee || employee == null) {
+      isLoadingAttendance.value = false;
+      return;
+    }
+
+    isLoadingAttendance.value = true;
+
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final response = await _attendanceService.getAttendances(
+      queryParameters: {
+        'filter': {'date': today, 'employeeId': employee.id, 'branchId': employee.branch?.id},
+      },
+    );
+
+    if (response.data != null && response.data!.isNotEmpty) {
+      final attendance = response.data!.first;
+      todayAttendance.value = attendance;
+      attendanceId.value = attendance.id;
+
+      // Populate check-in state
+      hasCheckedIn.value = attendance.checkInTime != null;
+      if (attendance.checkInTime != null) {
+        checkInTime = attendance.checkInTime;
+        checkInTimeDisplay.value = '${DateFormat('HH:mm:ss').format(attendance.checkInTime!)} WIB';
+        checkInStatus.value = statusLabel(attendance.status);
+      }
+
+      // Populate check-out state
+      hasCheckedOut.value = attendance.checkOutTime != null;
+      if (attendance.checkOutTime != null) {
+        checkOutTimeDisplay.value = '${DateFormat('HH:mm:ss').format(attendance.checkOutTime!)} WIB';
+        // Hitung durasi dari data API jika ada
+        if (attendance.durationMinutes != null && attendance.durationMinutes! > 0) {
+          final h = attendance.durationMinutes! ~/ 60;
+          final m = attendance.durationMinutes! % 60;
+          workDuration.value = '${h}j ${m}m';
+        }
+      }
+    } else {
+      // Array kosong → belum check-in sama sekali
+      todayAttendance.value = null;
+      hasCheckedIn.value = false;
+      hasCheckedOut.value = false;
+      attendanceId.value = null;
+      checkInTime = null;
+      checkInTimeDisplay.value = '';
+      checkOutTimeDisplay.value = '';
+      checkInStatus.value = '';
+      workDuration.value = '';
+    }
+
+    isLoadingAttendance.value = false;
+  }
+
+  /// Refresh data attendance hari ini (dipanggil setelah check-in/out berhasil)
+  Future<void> refreshTodayAttendance() async {
+    await _fetchTodayAttendance();
+  }
+
   /// Fetch total poin kehadiran dari API
   Future<void> _fetchTotalPoints() async {
     final employee = authController.employee.value;
@@ -171,35 +261,6 @@ class HomeController extends GetxController {
   /// Refresh poin (dipanggil setelah check-in berhasil)
   Future<void> refreshPoints() async {
     await _fetchTotalPoints();
-  }
-
-  void onCheckInTap() {
-    if (!isInRadius.value) return;
-
-    if (!hasCheckedIn.value) {
-      // --- CHECK IN ---
-      final now = DateTime.now();
-      checkInTime = now;
-
-      // Format: "07:55:12 WIB"
-      checkInTimeDisplay.value = '${DateFormat('HH:mm:ss').format(now)} WIB';
-
-      // Tepat waktu jika jam:menit <= 08:00
-      final isOnTime = now.hour < _onTimeLimitHour || (now.hour == _onTimeLimitHour && now.minute <= _onTimeLimitMinute);
-      checkInStatus.value = isOnTime ? 'Tepat Waktu' : 'Terlambat';
-
-      // Reset durasi
-      workDuration.value = '0j 0m';
-
-      hasCheckedIn.value = true;
-    } else {
-      // --- CHECK OUT ---
-      hasCheckedIn.value = false;
-      checkInTime = null;
-      checkInTimeDisplay.value = '';
-      checkInStatus.value = '';
-      workDuration.value = '';
-    }
   }
 
   @override
