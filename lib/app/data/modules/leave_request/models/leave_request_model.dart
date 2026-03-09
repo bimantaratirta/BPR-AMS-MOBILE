@@ -42,8 +42,8 @@ class LeaveRequestModel {
   factory LeaveRequestModel.fromJson(Map<String, dynamic> json) => LeaveRequestModel(
     id: json["id"],
     type: json["type"],
-    startDate: json["startDate"] == null ? null : DateTime.parse(json["startDate"]),
-    endDate: json["endDate"] == null ? null : DateTime.parse(json["endDate"]),
+    startDate: json["startDate"] == null ? null : DateTime.parse(json["startDate"]).toLocal(),
+    endDate: json["endDate"] == null ? null : DateTime.parse(json["endDate"]).toLocal(),
     reason: json["reason"],
     attachment: json["attachment"],
     status: json["status"],

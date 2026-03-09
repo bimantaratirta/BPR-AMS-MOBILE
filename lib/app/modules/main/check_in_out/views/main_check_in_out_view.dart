@@ -628,7 +628,7 @@ class MainCheckInOutView extends GetView<MainCheckInOutController> {
                 child: ElevatedButton(
                   onPressed: () => Get.back(),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isOut ? SecondaryColor.neutral700 : MainColor.blue2,
+                    backgroundColor: isOut ? const Color(0xffE84E00) : MainColor.blue2,
                     foregroundColor: SecondaryColor.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
                     elevation: 0,
@@ -656,6 +656,27 @@ class MainCheckInOutView extends GetView<MainCheckInOutController> {
   // ── Check-In success info ──────────────────────────────────
   Widget _buildCheckInInfoCard() {
     final ctrl = controller;
+    final statusText = ctrl.checkInStatusText;
+    // Warna chip sesuai enum
+    Color statusColor;
+    switch (statusText) {
+      case 'Tepat Waktu':
+        statusColor = SecondaryColor.success700;
+        break;
+      case 'Terlambat':
+        statusColor = SecondaryColor.warning600;
+        break;
+      case 'Izin / Cuti':
+      case 'Izin Sakit':
+      case '½ Hari':
+        statusColor = MainColor.blue2;
+        break;
+      case 'Alpha':
+        statusColor = SecondaryColor.danger600;
+        break;
+      default:
+        statusColor = SecondaryColor.neutral500;
+    }
     return _infoCard([
       _infoRow(
         icon: Icons.access_time_rounded,
@@ -669,9 +690,9 @@ class MainCheckInOutView extends GetView<MainCheckInOutController> {
         icon: Icons.verified_user_outlined,
         iconColor: SecondaryColor.neutral500,
         label: 'Status',
-        value: ctrl.checkInStatusText,
-        valueColor: ctrl.checkInStatusText == 'Tepat Waktu' ? SecondaryColor.success700 : SecondaryColor.warning600,
-        dot: ctrl.checkInStatusText == 'Tepat Waktu' ? SecondaryColor.success700 : SecondaryColor.warning600,
+        value: statusText,
+        valueColor: statusColor,
+        dot: statusColor,
       ),
       _divider(),
       _infoRow(

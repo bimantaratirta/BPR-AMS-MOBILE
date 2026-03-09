@@ -13,10 +13,29 @@ class HomeView extends GetView<HomeController> {
   const HomeView({super.key});
 
   // ─── Warna tema berdasarkan state ───────────────────────────
-  Color get _bgColor =>
-      controller.hasCheckedIn.value
-          ? const Color(0xffFFF3E8) // warm peach (sudah check-in)
-          : const Color(0xffEEF2FF); // biru muda (belum check-in)
+  Color get _bgColor {
+    if (controller.hasCheckedOut.value) return const Color(0xffF0FFF4); // hijau muda (selesai)
+    if (controller.hasCheckedIn.value) return const Color(0xffFFF3E8); // warm peach (check-in)
+    return const Color(0xffEEF2FF); // biru muda (belum check-in)
+  }
+
+  /// Warna chip status berdasarkan enum
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'Tepat Waktu':
+        return SecondaryColor.success700;
+      case 'Terlambat':
+        return SecondaryColor.warning600;
+      case 'Izin / Cuti':
+      case 'Izin Sakit':
+      case '½ Hari':
+        return MainColor.blue2;
+      case 'Alpha':
+        return SecondaryColor.danger600;
+      default:
+        return SecondaryColor.neutral500;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,32 +43,35 @@ class HomeView extends GetView<HomeController> {
       () => Scaffold(
         backgroundColor: _bgColor,
         body: SafeArea(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(),
-                SizedBox(height: 20.h),
-                _buildEmployeeCard(),
-                SizedBox(height: 12.h),
-                _buildPointsCard(),
-                SizedBox(height: 12.h),
-                // Card check-in info hanya muncul setelah check-in
-                if (controller.hasCheckedIn.value) ...[_buildCheckedInInfoCard(), SizedBox(height: 12.h)],
-                SizedBox(height: 20.h),
-                _buildClock(),
-                SizedBox(height: 8.h),
-                // Durasi kerja hanya muncul setelah check-in
-                if (controller.hasCheckedIn.value) _buildWorkDuration(),
-                SizedBox(height: 24.h),
-                _buildCheckButton(),
-                SizedBox(height: 28.h),
-                _buildLocationCard(),
-                SizedBox(height: 20.h),
-              ],
-            ),
-          ),
+          child:
+              controller.isLoadingAttendance.value
+                  ? const Center(child: CircularProgressIndicator())
+                  : SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildHeader(),
+                        SizedBox(height: 20.h),
+                        _buildEmployeeCard(),
+                        SizedBox(height: 12.h),
+                        _buildPointsCard(),
+                        SizedBox(height: 12.h),
+                        // Card check-in/out info hanya muncul setelah check-in
+                        if (controller.hasCheckedIn.value) ...[_buildCheckedInInfoCard(), SizedBox(height: 12.h)],
+                        SizedBox(height: 20.h),
+                        _buildClock(),
+                        SizedBox(height: 8.h),
+                        // Durasi kerja hanya muncul setelah check-in & belum checkout
+                        if (controller.hasCheckedIn.value && !controller.hasCheckedOut.value) _buildWorkDuration(),
+                        SizedBox(height: 24.h),
+                        _buildCheckButton(),
+                        SizedBox(height: 28.h),
+                        _buildLocationCard(),
+                        SizedBox(height: 20.h),
+                      ],
+                    ),
+                  ),
         ),
         bottomNavigationBar: const BuildBottomNavigationBar(),
       ),
@@ -61,6 +83,7 @@ class HomeView extends GetView<HomeController> {
   // ─────────────────────────────────────────────
   Widget _buildHeader() {
     final checkedIn = controller.hasCheckedIn.value;
+    final done = controller.hasCheckedOut.value;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -73,7 +96,9 @@ class HomeView extends GetView<HomeController> {
           children: [
             Expanded(
               child: Text(
-                checkedIn
+                done
+                    ? 'Absensi Selesai ✅'
+                    : checkedIn
                     ? 'Check Out ${controller.greetingEmoji}'
                     : '${controller.greeting}, ${controller.userName} ${controller.greetingEmoji}',
                 style: TextStyle(fontSize: 22.sp, fontWeight: FontWeight.w700, color: SecondaryColor.neutral700),
@@ -89,7 +114,14 @@ class HomeView extends GetView<HomeController> {
   // Employee Card
   // ─────────────────────────────────────────────
   Widget _buildEmployeeCard() {
+    final done = controller.hasCheckedOut.value;
     final checkedIn = controller.hasCheckedIn.value;
+    final accentColor =
+        done
+            ? SecondaryColor.success700
+            : checkedIn
+            ? const Color(0xffFF6B2C)
+            : MainColor.blue2;
     return GestureDetector(
       onTap: () => Get.toNamed('${Routes.MAIN}${Routes.MAIN_PROFILE}'),
       child: Container(
@@ -100,10 +132,7 @@ class HomeView extends GetView<HomeController> {
             Container(
               width: 44.w,
               height: 44.w,
-              decoration: BoxDecoration(
-                color: checkedIn ? const Color(0xffFF6B2C) : MainColor.blue2,
-                borderRadius: BorderRadius.circular(12.r),
-              ),
+              decoration: BoxDecoration(color: accentColor, borderRadius: BorderRadius.circular(12.r)),
               child: Icon(Icons.person_rounded, color: SecondaryColor.white, size: 24.sp),
             ),
             SizedBox(width: 12.w),
@@ -169,68 +198,102 @@ class HomeView extends GetView<HomeController> {
   }
 
   // ─────────────────────────────────────────────
-  // Check-in Info Card (hanya muncul saat sudah check-in)
+  // Check-in Info Card (muncul saat sudah check-in)
   // ─────────────────────────────────────────────
   Widget _buildCheckedInInfoCard() {
-    final isOnTime = controller.checkInStatus.value == 'Tepat Waktu';
+    final status = controller.checkInStatus.value;
+    final statusColor = _statusColor(status);
+    final isDone = controller.hasCheckedOut.value;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
       decoration: _cardDecoration(),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            width: 44.w,
-            height: 44.w,
-            decoration: BoxDecoration(color: const Color(0xffE5F5EC), borderRadius: BorderRadius.circular(12.r)),
-            child: Icon(Icons.check_circle_outline_rounded, color: SecondaryColor.success700, size: 24.sp),
-          ),
-          SizedBox(width: 12.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Check In Hari Ini',
-                  style: TextStyle(fontSize: 12.sp, color: SecondaryColor.neutral500, fontWeight: FontWeight.w400),
+          // ── Baris Check-in
+          Row(
+            children: [
+              Container(
+                width: 44.w,
+                height: 44.w,
+                decoration: BoxDecoration(color: const Color(0xffE5F5EC), borderRadius: BorderRadius.circular(12.r)),
+                child: Icon(Icons.login_rounded, color: SecondaryColor.success700, size: 22.sp),
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Check In',
+                      style: TextStyle(fontSize: 12.sp, color: SecondaryColor.neutral500, fontWeight: FontWeight.w400),
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      controller.checkInTimeDisplay.value,
+                      style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w700, color: SecondaryColor.neutral700),
+                    ),
+                  ],
                 ),
-                SizedBox(height: 2.h),
-                Text(
-                  controller.checkInTimeDisplay.value,
-                  style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w700, color: SecondaryColor.neutral700),
+              ),
+              // Status chip
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                decoration: BoxDecoration(color: statusColor.withOpacity(0.12), borderRadius: BorderRadius.circular(20.r)),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7.w,
+                      height: 7.w,
+                      decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
+                    ),
+                    SizedBox(width: 5.w),
+                    Text(status, style: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.w600, color: statusColor)),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          // Status chip
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-            decoration: BoxDecoration(
-              color: isOnTime ? const Color(0xffE5F5EC) : const Color(0xffFFEBEE),
-              borderRadius: BorderRadius.circular(20.r),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+          // ── Baris Check-out (hanya tampil jika sudah checkout)
+          if (isDone) ...[
+            Divider(height: 20.h, thickness: 1, color: SecondaryColor.neutral100),
+            Row(
               children: [
                 Container(
-                  width: 7.w,
-                  height: 7.w,
-                  decoration: BoxDecoration(
-                    color: isOnTime ? SecondaryColor.success700 : SecondaryColor.danger600,
-                    shape: BoxShape.circle,
+                  width: 44.w,
+                  height: 44.w,
+                  decoration: BoxDecoration(color: const Color(0xffFFF7E1), borderRadius: BorderRadius.circular(12.r)),
+                  child: Icon(Icons.logout_rounded, color: SecondaryColor.warning600, size: 22.sp),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Check Out',
+                        style: TextStyle(fontSize: 12.sp, color: SecondaryColor.neutral500, fontWeight: FontWeight.w400),
+                      ),
+                      SizedBox(height: 2.h),
+                      Text(
+                        controller.checkOutTimeDisplay.value,
+                        style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w700, color: SecondaryColor.neutral700),
+                      ),
+                    ],
                   ),
                 ),
-                SizedBox(width: 5.w),
-                Text(
-                  controller.checkInStatus.value,
-                  style: TextStyle(
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w600,
-                    color: isOnTime ? SecondaryColor.success700 : SecondaryColor.danger600,
+                if (controller.workDuration.value.isNotEmpty)
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                    decoration: BoxDecoration(color: SecondaryColor.neutral100, borderRadius: BorderRadius.circular(20.r)),
+                    child: Text(
+                      controller.workDuration.value,
+                      style: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.w600, color: SecondaryColor.neutral600),
+                    ),
                   ),
-                ),
               ],
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -289,33 +352,66 @@ class HomeView extends GetView<HomeController> {
   // ─────────────────────────────────────────────
   Widget _buildCheckButton() {
     final checkedIn = controller.hasCheckedIn.value;
+    final isDone = controller.hasCheckedOut.value;
     final inRadius = controller.isInRadius.value;
     final isChecking = controller.isCheckingLocation.value;
+
+    // Jika sudah selesai (checkin + checkout), tombol greyed out
+    final isDisabled = isDone || (!inRadius && !isChecking);
+    final canAct = !isDone && !isChecking && inRadius;
+
+    Color gradStart, gradEnd, shadowColor;
+    IconData btnIcon;
+    String btnLabel;
+
+    if (isDone) {
+      gradStart = SecondaryColor.success700;
+      gradEnd = const Color(0xff1B8C4E);
+      shadowColor = SecondaryColor.success700;
+      btnIcon = Icons.check_circle_rounded;
+      btnLabel = 'Selesai';
+    } else if (!inRadius || isChecking) {
+      gradStart = SecondaryColor.neutral400;
+      gradEnd = SecondaryColor.neutral500;
+      shadowColor = SecondaryColor.neutral400;
+      btnIcon = isChecking ? Icons.my_location_rounded : Icons.location_off_rounded;
+      btnLabel = isChecking ? 'Cek Lokasi' : 'Di Luar Area';
+    } else if (checkedIn) {
+      gradStart = const Color(0xffFF8C42);
+      gradEnd = const Color(0xffE84E00);
+      shadowColor = const Color(0xffFF6B2C);
+      btnIcon = Icons.logout_rounded;
+      btnLabel = 'Check Out';
+    } else {
+      gradStart = MainColor.blue3;
+      gradEnd = MainColor.blue5;
+      shadowColor = MainColor.blue2;
+      btnIcon = Icons.fingerprint_rounded;
+      btnLabel = 'Check In';
+    }
 
     return Center(
       child: Column(
         children: [
           GestureDetector(
             onTap: () {
-              if (isChecking) {
+              if (!canAct) {
+                if (isDone) return; // sudah selesai, tidak bisa tap
                 final ctx = Get.context;
-                if (ctx != null) {
+                if (ctx == null) return;
+                if (isChecking) {
                   CustomSnackbar(message: 'Sedang memeriksa lokasi...', type: CustomSnackbarType.warning).show(ctx);
-                }
-                return;
-              }
-              if (!inRadius) {
-                final ctx = Get.context;
-                if (ctx != null) {
+                } else {
                   final errorMsg =
                       controller.locationErrorMessage.value.isNotEmpty
                           ? controller.locationErrorMessage.value
-                          : 'Anda di luar radius kantor. Tidak dapat melakukan ${checkedIn ? "check out" : "check in"}.';
+                          : 'Anda di luar radius kantor.';
                   CustomSnackbar(message: errorMsg, type: CustomSnackbarType.error).show(ctx);
                 }
                 return;
               }
               if (checkedIn) {
+                // Langsung ke konfirmasi checkout (tanpa kamera)
                 Get.toNamed('${Routes.MAIN}${Routes.MAIN_CHECK_IN_OUT}', arguments: {'isCheckOut': true});
               } else {
                 Get.toNamed('${Routes.MAIN}${Routes.MAIN_CHECK_IN_OUT}');
@@ -327,24 +423,10 @@ class HomeView extends GetView<HomeController> {
               height: 120.w,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors:
-                      !inRadius || isChecking
-                          ? [SecondaryColor.neutral400, SecondaryColor.neutral500]
-                          : checkedIn
-                          ? [const Color(0xffFF8C42), const Color(0xffE84E00)]
-                          : [MainColor.blue3, MainColor.blue5],
-                  center: Alignment.center,
-                  radius: 0.85,
-                ),
+                gradient: RadialGradient(colors: [gradStart, gradEnd], center: Alignment.center, radius: 0.85),
                 boxShadow: [
                   BoxShadow(
-                    color: (!inRadius || isChecking
-                            ? SecondaryColor.neutral400
-                            : checkedIn
-                            ? const Color(0xffFF6B2C)
-                            : MainColor.blue2)
-                        .withOpacity(0.4),
+                    color: shadowColor.withOpacity(isDisabled ? 0.2 : 0.4),
                     blurRadius: 24,
                     spreadRadius: 4,
                     offset: const Offset(0, 6),
@@ -354,38 +436,24 @@ class HomeView extends GetView<HomeController> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (isChecking)
+                  if (isChecking && !isDone)
                     SizedBox(
                       width: 36.w,
                       height: 36.w,
                       child: CircularProgressIndicator(strokeWidth: 3, color: SecondaryColor.white),
                     )
                   else
-                    Icon(
-                      !inRadius
-                          ? Icons.location_off_rounded
-                          : checkedIn
-                          ? Icons.logout_rounded
-                          : Icons.fingerprint_rounded,
-                      color: SecondaryColor.white,
-                      size: 48.sp,
-                    ),
+                    Icon(btnIcon, color: SecondaryColor.white, size: 48.sp),
                   SizedBox(height: 6.h),
                   Text(
-                    isChecking
-                        ? 'Cek Lokasi'
-                        : !inRadius
-                        ? 'Di Luar Area'
-                        : checkedIn
-                        ? 'Check Out'
-                        : 'Check In',
+                    btnLabel,
                     style: TextStyle(color: SecondaryColor.white, fontWeight: FontWeight.w600, fontSize: 13.sp),
                   ),
                 ],
               ),
             ),
           ),
-          if (!inRadius && !isChecking) ...[
+          if (!inRadius && !isChecking && !isDone) ...[
             SizedBox(height: 10.h),
             GestureDetector(
               onTap: () => controller.refreshLocation(),
@@ -408,6 +476,13 @@ class HomeView extends GetView<HomeController> {
                   ],
                 ),
               ),
+            ),
+          ],
+          if (isDone) ...[
+            SizedBox(height: 10.h),
+            Text(
+              'Absensi hari ini sudah selesai',
+              style: TextStyle(fontSize: 12.sp, color: SecondaryColor.success700, fontWeight: FontWeight.w500),
             ),
           ],
         ],
