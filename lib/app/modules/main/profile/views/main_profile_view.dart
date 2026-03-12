@@ -145,22 +145,22 @@ class MainProfileView extends GetView<MainProfileController> {
       ),
       child: Column(
         children: [
-          _menuItem(
-            icon: Icons.notifications_outlined,
-            iconBgColor: MainColor.blueLight1,
-            iconColor: MainColor.blue2,
-            label: 'Notifikasi',
-            onTap: controller.onNotifikasiTap,
-            showDivider: true,
-          ),
-          _menuItem(
-            icon: Icons.settings_outlined,
-            iconBgColor: MainColor.blueLight1,
-            iconColor: MainColor.blue2,
-            label: 'Pengaturan',
-            onTap: controller.onPengaturanTap,
-            showDivider: true,
-          ),
+          // _menuItem(
+          //   icon: Icons.notifications_outlined,
+          //   iconBgColor: MainColor.blueLight1,
+          //   iconColor: MainColor.blue2,
+          //   label: 'Notifikasi',
+          //   onTap: controller.onNotifikasiTap,
+          //   showDivider: true,
+          // ),
+          // _menuItem(
+          //   icon: Icons.settings_outlined,
+          //   iconBgColor: MainColor.blueLight1,
+          //   iconColor: MainColor.blue2,
+          //   label: 'Pengaturan',
+          //   onTap: controller.onPengaturanTap,
+          //   showDivider: true,
+          // ),
           _menuItem(
             icon: Icons.logout_rounded,
             iconBgColor: const Color(0xffFFE2F2),
@@ -225,7 +225,7 @@ class MainProfileView extends GetView<MainProfileController> {
   // ─────────────────────────────────────────────
   Widget _buildVersionFooter() {
     return Text(
-      'BPR Sahabat Sejati v1.0.0',
+      'BPR AMS v1.0.0',
       style: TextStyle(fontSize: 12.sp, color: SecondaryColor.neutral400, fontWeight: FontWeight.w400),
     );
   }

@@ -69,7 +69,7 @@ class DioInterceptor extends Interceptor {
   Future<void> _handleJWTError(DioException err, ErrorInterceptorHandler handler) async {
     if (err.response?.statusCode == 401) {
       try {
-        // Check if the error happened while trying to refresh the token
+        // // Check if the error happened while trying to refresh the token
         // if (err.requestOptions.path.contains(AppConstants.refreshTokenEndpoint)) {
         //   // If refreshing token also fails, require re-login
         //   await StorageClient.clearSession();
@@ -77,14 +77,14 @@ class DioInterceptor extends Interceptor {
         //   return handler.reject(err);
         // }
 
-        // Try to refresh JWT token
+        // // Try to refresh JWT token
         // final refreshToken = StorageClient.getRefreshToken();
         // if (refreshToken != null) {
-        // await _refreshJWTToken();
+        //   await _refreshJWTToken();
 
-        // Retry the original request with new JWT token
-        // final response = await _retryRequestWithJWT(err.requestOptions);
-        // return handler.resolve(response);
+        //   // Retry the original request with new JWT token
+        //   final response = await _retryRequestWithJWT(err.requestOptions);
+        //   return handler.resolve(response);
         // } else {
         await _redirectToLogin();
         return handler.reject(err);
@@ -106,7 +106,7 @@ class DioInterceptor extends Interceptor {
 
   //   try {
   //     final response = await dio.post(
-  //       '${AppConstants.baseApiUrl}${AppConstants.refreshTokenEndpoint}',
+  //       '${AppConstants.baseApiUrl}${AppConstants.authEmployeePathApi}/refresh-token',
   //       options: Options(headers: {'Authorization': 'Bearer $refreshToken'}),
   //     );
 

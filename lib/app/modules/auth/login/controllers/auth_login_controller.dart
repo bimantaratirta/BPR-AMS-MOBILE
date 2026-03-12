@@ -74,7 +74,17 @@ class AuthLoginController extends GetxController {
 
         isLoading.value = false;
       } else {
-        String errorMsg = response.errors ?? response.error ?? response.message ?? "Login gagal. Silakan coba lagi.";
+        String errorMsg = "Login gagal. Silakan coba lagi.";
+        if (response.errors is String) {
+          errorMsg = response.errors;
+        } else if (response.errors is Map && response.errors['message'] != null) {
+          errorMsg = response.errors['message'].toString();
+        } else if (response.error != null) {
+          errorMsg = response.error.toString();
+        } else if (response.message != null) {
+          errorMsg = response.message!;
+        }
+
         message.value = errorMsg;
         CustomSnackbar(message: errorMsg, type: CustomSnackbarType.warning).show(context);
       }
