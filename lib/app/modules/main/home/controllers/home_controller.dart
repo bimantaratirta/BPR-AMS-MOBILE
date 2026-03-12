@@ -128,7 +128,8 @@ class HomeController extends GetxController {
     currentTime.value = DateFormat('HH:mm:ss').format(now);
     currentDateDisplay.value = DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(now);
 
-    if (hasCheckedIn.value && checkInTime != null) {
+    // Live timer hanya aktif saat sudah check-in dan BELUM checkout
+    if (hasCheckedIn.value && !hasCheckedOut.value && checkInTime != null) {
       final diff = now.difference(checkInTime!);
       final hours = diff.inHours;
       final minutes = diff.inMinutes % 60;
@@ -210,8 +211,14 @@ class HomeController extends GetxController {
       hasCheckedOut.value = attendance.checkOutTime != null;
       if (attendance.checkOutTime != null) {
         checkOutTimeDisplay.value = '${DateFormat('HH:mm:ss').format(attendance.checkOutTime!)} WIB';
-        // Hitung durasi dari data API jika ada
-        if (attendance.durationMinutes != null && attendance.durationMinutes! > 0) {
+        // Hitung durasi dari selisih checkIn - checkOut
+        if (attendance.checkInTime != null) {
+          final diff = attendance.checkOutTime!.difference(attendance.checkInTime!);
+          final h = diff.inHours;
+          final m = diff.inMinutes % 60;
+          workDuration.value = '${h}j ${m}m';
+        } else if (attendance.durationMinutes != null && attendance.durationMinutes! > 0) {
+          // Fallback ke durationMinutes dari API jika checkInTime tidak ada
           final h = attendance.durationMinutes! ~/ 60;
           final m = attendance.durationMinutes! % 60;
           workDuration.value = '${h}j ${m}m';
@@ -248,7 +255,11 @@ class HomeController extends GetxController {
 
     isLoadingPoints.value = true;
 
-    final response = await _pointRecordService.getPointRecords(queryParameters: {'employeeId': employee.id});
+    final response = await _pointRecordService.getPointRecords(
+      queryParameters: {
+        'filter': {'employeeId': employee.id},
+      },
+    );
 
     if (response.data != null) {
       final total = response.data!.fold<int>(0, (sum, r) => sum + (r.points ?? 0));

@@ -153,7 +153,16 @@ class MainPoinController extends GetxController {
       );
 
       if (response.data != null) {
-        final newItems = response.data!;
+        // Filter client-side juga sebagai safeguard jika server tidak memfilter bulan
+        final selectedYear = month.year;
+        final selectedMonthNum = month.month;
+        final newItems =
+            response.data!.where((r) {
+              if (r.date == null) return false;
+              final localDate = r.date!.toLocal();
+              return localDate.year == selectedYear && localDate.month == selectedMonthNum;
+            }).toList();
+
         if (isLoadMore) {
           records.addAll(newItems);
         } else {
@@ -182,7 +191,11 @@ class MainPoinController extends GetxController {
       return;
     }
 
-    final response = await _pointRecordService.getPointRecords(queryParameters: {'employeeId': employee.id});
+    final response = await _pointRecordService.getPointRecords(
+      queryParameters: {
+        'filter': {'employeeId': employee.id},
+      },
+    );
 
     if (response.data != null) {
       totalPoin.value = response.data!.fold(0.0, (sum, r) => sum + (r.points ?? 0));
