@@ -92,11 +92,11 @@ class LocationService {
 
       // override position data untuk testing
       // Ganti dengan position.latitude & position.longitude untuk production
-      double deviceLat = -6.937350; // position.latitude;
-      double deviceLng = 107.712750; // position.longitude;
+      // double deviceLat = -6.937350; // position.latitude;
+      // double deviceLng = 107.712750; // position.longitude;
 
-      // final deviceLat = position.latitude;
-      // final deviceLng = position.longitude;
+      final deviceLat = position.latitude;
+      final deviceLng = position.longitude;
 
       // Hitung jarak
       final distance = Geolocator.distanceBetween(deviceLat, deviceLng, branchLat, branchLng);
