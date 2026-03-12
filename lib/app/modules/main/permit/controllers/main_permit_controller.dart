@@ -121,11 +121,14 @@ class MainPermitController extends GetxController {
       // Map selected jenis izin to API enum value
       final leaveType = jenisIzinMap[selectedJenisIzin.value] ?? 'IZIN_CUTI';
 
+      final startDateStr = tanggalMulai.value!.toIso8601String();
+      final endDateStr = tanggalSelesai.value!.toIso8601String();
+
       // Build FormData
       final formData = FormData.fromMap({
         'type': leaveType,
-        'startDate': tanggalMulai.value!.toUtc().toIso8601String(),
-        'endDate': tanggalSelesai.value!.toUtc().toIso8601String(),
+        'startDate': startDateStr,
+        'endDate': endDateStr,
         'reason': alasanController.text.trim(),
         // 'employeeId': employeeId,
       });
