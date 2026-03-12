@@ -1,5 +1,6 @@
 import 'package:bpr_ams/app/data/modules/leave_request/leave_request_service.dart';
 import 'package:bpr_ams/app/modules/auth/controllers/auth_controller.dart';
+import 'package:bpr_ams/app/common/constant/app_constants.dart';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +10,11 @@ import 'package:bpr_ams/app/widgets/build_custom_snackbar.dart';
 class MainPermitController extends GetxController {
   final LeaveRequestService _leaveRequestService = LeaveRequestService();
   final AuthController _authController = Get.find<AuthController>();
+
+  int get sisaCuti {
+    final used = _authController.employee.value?.usedAnnualLeave ?? 0;
+    return AppConstants.maxAnnualLeave - used;
+  }
 
   // ─── Jenis Izin options (mapped to API enum values) ─────────
   final Map<String, String> jenisIzinMap = {

@@ -1,7 +1,7 @@
 class AppConstants {
   // API Constants
-  static const String baseApiUrl = "https://chadwick-preludial-ayesha.ngrok-free.dev/api/v1";
-  // static const String baseApiUrl = "https://api.bpr.ashakita.net/api/v1";
+  // static const String baseApiUrl = "https://chadwick-preludial-ayesha.ngrok-free.dev/api/v1";
+  static const String baseApiUrl = "https://api.bpr.ashakita.net/api/v1";
   static const String baseImageUrl = "https://is3.cloudhost.id/bpr-ams";
 
   // Endpoints
@@ -20,4 +20,5 @@ class AppConstants {
 
   // Other Constants
   static const int timeoutDuration = 30000; // milliseconds
+  static const int maxAnnualLeave = 12; // days
 }

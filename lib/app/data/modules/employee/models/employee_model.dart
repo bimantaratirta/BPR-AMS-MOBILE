@@ -25,6 +25,7 @@ class EmployeeModel {
   DateTime? createdAt;
   DateTime? updatedAt;
   Branch? branch;
+  int? usedAnnualLeave;
 
   EmployeeModel({
     this.id,
@@ -43,6 +44,7 @@ class EmployeeModel {
     this.createdAt,
     this.updatedAt,
     this.branch,
+    this.usedAnnualLeave,
   });
 
   factory EmployeeModel.fromJson(Map<String, dynamic> json) => EmployeeModel(
@@ -62,6 +64,7 @@ class EmployeeModel {
     createdAt: json["createdAt"] == null ? null : DateTime.parse(json["createdAt"]),
     updatedAt: json["updatedAt"] == null ? null : DateTime.parse(json["updatedAt"]),
     branch: json["branch"] == null ? null : Branch.fromJson(json["branch"]),
+    usedAnnualLeave: json["usedAnnualLeave"],
   );
 
   Map<String, dynamic> toJson() => {
@@ -81,6 +84,7 @@ class EmployeeModel {
     "createdAt": createdAt?.toIso8601String(),
     "updatedAt": updatedAt?.toIso8601String(),
     "branch": branch?.toJson(),
+    "usedAnnualLeave": usedAnnualLeave,
   };
 }
 

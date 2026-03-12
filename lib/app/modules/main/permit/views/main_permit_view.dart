@@ -98,7 +98,26 @@ class MainPermitView extends GetView<MainPermitController> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label('Jenis Izin'),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _label('Jenis Izin'),
+            Obx(
+              () => Container(
+                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                decoration: BoxDecoration(
+                  color: SecondaryColor.warning100,
+                  borderRadius: BorderRadius.circular(6.r),
+                  border: Border.all(color: SecondaryColor.warning300),
+                ),
+                child: Text(
+                  'Sisa Cuti Tahunan: ${controller.sisaCuti} Hari',
+                  style: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.w700, color: SecondaryColor.warning700),
+                ),
+              ),
+            ),
+          ],
+        ),
         SizedBox(height: 8.h),
         _dropdownField(
           value: controller.selectedJenisIzin.value,
