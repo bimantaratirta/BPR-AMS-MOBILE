@@ -1,0 +1,11 @@
+.dart_tool/
+.idea/
+.vscode/
+build/
+android/
+ios/
+test/
+.git/
+*.iml
+.metadata
+devtools_options.yaml

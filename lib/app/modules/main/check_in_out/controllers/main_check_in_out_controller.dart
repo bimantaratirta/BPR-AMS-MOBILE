@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:bpr_ams/app/common/utils/location_service.dart';
 import 'package:bpr_ams/app/data/modules/attendance/attendance_service.dart';
@@ -11,8 +11,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart' hide FormData, MultipartFile;
 import 'package:intl/intl.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 // ── State machine for the screen ─────────────────────────
 enum CheckInStage {
@@ -56,6 +54,10 @@ class MainCheckInOutController extends GetxController with GetTickerProviderStat
   CameraController? cameraController;
   final RxBool isCameraReady = false.obs;
   XFile? capturedPhoto;
+
+  // ── Photo bytes (cross-platform: works on web & mobile) ──
+  Uint8List? capturedPhotoBytes;
+  String? _capturedPhotoName;
 
   // ── Submitting state ─────────────────────────────────
   final RxBool isSubmitting = false.obs;
@@ -255,12 +257,10 @@ class MainCheckInOutController extends GetxController with GetTickerProviderStat
           if (cameraController != null && cameraController!.value.isInitialized) {
             try {
               final xFile = await cameraController!.takePicture();
-              // Save to temp directory
-              final tempDir = await getTemporaryDirectory();
-              final fileName = 'checkin_${DateTime.now().millisecondsSinceEpoch}.jpg';
-              final savedPath = p.join(tempDir.path, fileName);
-              await File(xFile.path).copy(savedPath);
-              capturedPhoto = XFile(savedPath);
+              // Read as bytes (works on both web & mobile)
+              capturedPhotoBytes = await xFile.readAsBytes();
+              _capturedPhotoName = 'checkin_${DateTime.now().millisecondsSinceEpoch}.jpg';
+              capturedPhoto = xFile;
             } catch (e) {
               debugPrint('Error taking photo: $e');
             }
@@ -276,6 +276,8 @@ class MainCheckInOutController extends GetxController with GetTickerProviderStat
   void onRetry() {
     _countdownTimer?.cancel();
     capturedPhoto = null;
+    capturedPhotoBytes = null;
+    _capturedPhotoName = null;
     submitError.value = '';
     stage.value = CheckInStage.idle;
     countdown.value = 3;
@@ -335,9 +337,12 @@ class MainCheckInOutController extends GetxController with GetTickerProviderStat
     // Build FormData dengan koordinat GPS asli
     final formData = FormData.fromMap({'checkInLat': _deviceLat ?? 0.0, 'checkInLng': _deviceLng ?? 0.0});
 
-    // Add photo if captured
-    if (capturedPhoto != null) {
-      final file = await MultipartFile.fromFile(capturedPhoto!.path, filename: p.basename(capturedPhoto!.path));
+    // Add photo if captured (bytes-based: works on both web & mobile)
+    if (capturedPhotoBytes != null) {
+      final file = MultipartFile.fromBytes(
+        capturedPhotoBytes!,
+        filename: _capturedPhotoName ?? 'checkin.jpg',
+      );
       formData.files.add(MapEntry('checkInPhoto', file));
     }
 

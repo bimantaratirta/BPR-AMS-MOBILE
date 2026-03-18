@@ -3,6 +3,7 @@ import 'package:bpr_ams/app/modules/auth/controllers/auth_controller.dart';
 import 'package:bpr_ams/app/common/constant/app_constants.dart';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart' hide FormData, MultipartFile, Response;
 import 'package:bpr_ams/app/widgets/build_custom_snackbar.dart';
@@ -84,7 +85,7 @@ class MainPermitController extends GetxController {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
-      withData: false,
+      withData: kIsWeb, // Web needs bytes since file paths don't exist
       withReadStream: false,
     );
 
@@ -140,10 +141,18 @@ class MainPermitController extends GetxController {
       });
 
       // Add attachment file if present
-      if (_pickedFile != null && _pickedFile!.path != null) {
-        formData.files.add(
-          MapEntry('attachment', await MultipartFile.fromFile(_pickedFile!.path!, filename: _pickedFile!.name)),
-        );
+      if (_pickedFile != null) {
+        if (kIsWeb && _pickedFile!.bytes != null) {
+          // Web: use bytes since file paths don't exist
+          formData.files.add(
+            MapEntry('attachment', MultipartFile.fromBytes(_pickedFile!.bytes!.toList(), filename: _pickedFile!.name)),
+          );
+        } else if (_pickedFile!.path != null) {
+          // Mobile: use file path
+          formData.files.add(
+            MapEntry('attachment', await MultipartFile.fromFile(_pickedFile!.path!, filename: _pickedFile!.name)),
+          );
+        }
       }
 
       final response = await _leaveRequestService.createLeaveRequest(formData);

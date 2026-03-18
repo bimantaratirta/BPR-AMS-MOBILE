@@ -1,0 +1,9 @@
+services:
+  employee-web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: bpr-ams-employee-web
+    ports:
+      - "3012:80"
+    restart: unless-stopped

@@ -1,5 +1,6 @@
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:bpr_ams/app/modules/auth/controllers/auth_controller.dart';
+import 'package:bpr_ams/app/modules/android_block/android_block_page.dart';
 import 'package:flutter/foundation.dart';
 import 'package:device_preview/device_preview.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +16,12 @@ import 'app/routes/app_pages.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Block Android devices on web — they must use the native app
+  if (kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    runApp(const AndroidBlockApp());
+    return;
+  }
 
   // Initialize date formatting for Indonesian locale
   await initializeDateFormatting('id_ID', null);

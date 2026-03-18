@@ -1,7 +1,6 @@
-import 'dart:io';
-
 import 'package:bpr_ams/app/common/constant/app_colors.dart';
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
@@ -375,17 +374,16 @@ class MainCheckInOutView extends GetView<MainCheckInOutController> {
         fit: StackFit.expand,
         children: [
           // Camera preview or captured photo
-          if (stage == CheckInStage.captured && controller.capturedPhoto != null)
-            // Show captured photo
-            Image.file(File(controller.capturedPhoto!.path), fit: BoxFit.cover)
+          if (stage == CheckInStage.captured && controller.capturedPhotoBytes != null)
+            // Show captured photo (bytes-based: works on web & mobile)
+            Image.memory(controller.capturedPhotoBytes!, fit: BoxFit.cover)
           else if (!controller.isCheckOut)
             // Show live camera preview
             Obx(() {
               if (controller.isCameraReady.value && controller.cameraController != null) {
-                return Transform.scale(
-                  scaleX: -1, // Mirror front camera
-                  child: CameraPreview(controller.cameraController!),
-                );
+                final preview = CameraPreview(controller.cameraController!);
+                // Mirror front camera on mobile only; web handles mirroring differently
+                return kIsWeb ? preview : Transform.scale(scaleX: -1, child: preview);
               }
               return const Center(child: CircularProgressIndicator(color: Colors.white54));
             })
