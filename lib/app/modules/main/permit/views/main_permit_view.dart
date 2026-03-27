@@ -189,7 +189,7 @@ class MainPermitView extends GetView<MainPermitController> {
         GestureDetector(
           onTap: () => isMulai ? controller.pickTanggalMulai(context) : controller.pickTanggalSelesai(context),
           child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 13.h),
+            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 13.h),
             decoration: _inputDecoration(hasError: hasError),
             child: Row(
               children: [
@@ -198,13 +198,17 @@ class MainPermitView extends GetView<MainPermitController> {
                   size: 16.sp,
                   color: date != null ? MainColor.blue2 : SecondaryColor.neutral400,
                 ),
-                SizedBox(width: 8.w),
-                Text(
-                  dateStr,
-                  style: TextStyle(
-                    fontSize: 13.sp,
-                    color: date != null ? SecondaryColor.neutral700 : SecondaryColor.neutral400,
-                    fontWeight: date != null ? FontWeight.w500 : FontWeight.w400,
+                SizedBox(width: 6.w),
+                Expanded(
+                  child: Text(
+                    dateStr,
+                    style: TextStyle(
+                      fontSize: 13.sp,
+                      color: date != null ? SecondaryColor.neutral700 : SecondaryColor.neutral400,
+                      fontWeight: date != null ? FontWeight.w500 : FontWeight.w400,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
