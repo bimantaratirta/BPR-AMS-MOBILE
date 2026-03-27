@@ -1,10 +1,9 @@
-import 'package:bpr_ams/app/common/constant/app_colors.dart';
 import 'package:bpr_ams/app/common/constant/app_assets.dart';
+import 'package:bpr_ams/app/common/constant/app_colors.dart';
 import 'package:bpr_ams/app/widgets/build_custom_text_form_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
-
 import 'package:get/get.dart';
 
 import '../controllers/auth_login_controller.dart';
@@ -112,7 +111,7 @@ class AuthLoginView extends GetView<AuthLoginController> {
                     ],
                   ),
                   SizedBox(height: 16),
-                  Align(alignment: Alignment.centerRight, child: Text("Lupa Password?", style: Get.textTheme.bodyMedium!)),
+                  // Align(alignment: Alignment.centerRight, child: Text("Lupa Password?", style: Get.textTheme.bodyMedium!)),
                   SizedBox(height: 32),
                   Obx(() {
                     final isFormValid = controller.isFormValid.value;

@@ -1,8 +1,8 @@
 class AppConstants {
   // API Constants
   // static const String baseApiUrl = "https://chadwick-preludial-ayesha.ngrok-free.dev/api/v1";
-  static const String baseApiUrl = "https://api.bpr.ashakita.net/api/v1";
-  static const String baseImageUrl = "https://is3.cloudhost.id/bpr-ams";
+  static const String baseApiUrl = "https://api-ams.bprss.com/api/v1";
+  static const String baseImageUrl = "https://s3-api.bprss.com/bpr-ams";
 
   // Endpoints
   static const String authEmployeePathApi = "/auth/employee";
@@ -14,6 +14,8 @@ class AppConstants {
   static const String checkOutPathApi = "/attendances/checkout";
   static const String leaveRequestPathApi = "/leave-requests";
   static const String pointRecordPathApi = "/point-records";
+  static const String refreshTokenEmployeeEndpoint = '/auth/employee/refresh-token';
+  static const String refreshTokenAdminEndpoint = '/auth/admin/refresh-token';
 
   // Storage Keys
   static const String userKey = "user_data";

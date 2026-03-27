@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:bpr_ams/app/common/constant/app_constants.dart';
+import 'package:bpr_ams/app/common/utils/helper.dart';
 import 'package:bpr_ams/app/data/storage/storage_client.dart';
 import 'package:bpr_ams/app/routes/app_pages.dart';
 import 'package:dio/dio.dart';
@@ -68,29 +69,28 @@ class DioInterceptor extends Interceptor {
   // Handle JWT errors
   Future<void> _handleJWTError(DioException err, ErrorInterceptorHandler handler) async {
     if (err.response?.statusCode == 401) {
-      try {
-        // // Check if the error happened while trying to refresh the token
-        // if (err.requestOptions.path.contains(AppConstants.refreshTokenEndpoint)) {
-        //   // If refreshing token also fails, require re-login
-        //   await StorageClient.clearSession();
-        //   await _redirectToLogin();
-        //   return handler.reject(err);
-        // }
-
-        // // Try to refresh JWT token
-        // final refreshToken = StorageClient.getRefreshToken();
-        // if (refreshToken != null) {
-        //   await _refreshJWTToken();
-
-        //   // Retry the original request with new JWT token
-        //   final response = await _retryRequestWithJWT(err.requestOptions);
-        //   return handler.resolve(response);
-        // } else {
+      // Jika yang gagal adalah request refresh token itu sendiri, jangan loop
+      final path = err.requestOptions.path;
+      if (path.contains('refresh-token')) {
+        await StorageClient.clearSession();
         await _redirectToLogin();
         return handler.reject(err);
-        // }
+      }
+
+      try {
+        final refreshToken = StorageClient.getRefreshToken();
+        if (refreshToken != null) {
+          await _refreshJWTToken(refreshToken);
+
+          // Retry request asal dengan access token baru
+          final response = await _retryRequestWithJWT(err.requestOptions);
+          return handler.resolve(response);
+        } else {
+          await _redirectToLogin();
+          return handler.reject(err);
+        }
       } catch (e) {
-        // Refresh token failed, redirect to login
+        // Refresh token gagal, paksa login ulang
         await StorageClient.clearSession();
         await _redirectToLogin();
         return handler.reject(err);
@@ -100,29 +100,36 @@ class DioInterceptor extends Interceptor {
     }
   }
 
-  // Method to refresh JWT token
-  // Future<void> _refreshJWTToken() async {
-  //   final refreshToken = StorageClient.getRefreshToken();
+  // Refresh JWT token menggunakan refresh token
+  Future<void> _refreshJWTToken(String refreshToken) async {
+    final userType = StorageClient.getUserType();
+    final isEmployee = userType == 'EMPLOYEE';
+    final endpoint = isEmployee
+        ? '${AppConstants.baseApiUrl}${AppConstants.refreshTokenEmployeeEndpoint}'
+        : '${AppConstants.baseApiUrl}${AppConstants.refreshTokenAdminEndpoint}';
 
-  //   try {
-  //     final response = await dio.post(
-  //       '${AppConstants.baseApiUrl}${AppConstants.authEmployeePathApi}/refresh-token',
-  //       options: Options(headers: {'Authorization': 'Bearer $refreshToken'}),
-  //     );
+    // Gunakan Dio baru tanpa interceptor agar tidak loop
+    final freshDio = Dio();
+    final response = await freshDio.post(
+      endpoint,
+      options: Options(headers: {'Authorization': 'Bearer $refreshToken'}),
+    );
 
-  //     if (response.statusCode == 200 && response.data != null) {
-  //       // Save new JWT tokens
-  //       final data = response.data['data'];
-  //       if (data != null && data['access_token'] != null) {
-  //         await StorageClient.saveToken(data['access_token'], data['refresh_token'] ?? refreshToken);
-  //       }
-  //     }
-  //   } catch (e) {
-  //     // If refresh fails, clear session and require re-login
-  //     await StorageClient.clearSession();
-  //     rethrow;
-  //   }
-  // }
+    if (response.statusCode == 200 && response.data != null) {
+      final data = response.data['data'];
+      if (data != null && data['access_token'] != null) {
+        final newAccessToken = data['access_token'] as String;
+        final newRefreshToken = data['refresh_token'] as String? ?? refreshToken;
+        await StorageClient.saveToken(newAccessToken, newRefreshToken);
+
+        final payload = Helper().decodeJwt(newAccessToken);
+        final exp = payload?['exp'];
+        if (exp != null) await StorageClient.saveTokenExpiry((exp as num).toInt());
+      }
+    } else {
+      throw Exception('Refresh token gagal');
+    }
+  }
 
   // Method to retry failed request with JWT
   Future<Response<dynamic>> _retryRequestWithJWT(RequestOptions requestOptions) async {
