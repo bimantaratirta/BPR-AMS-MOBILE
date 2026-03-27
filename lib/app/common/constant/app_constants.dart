@@ -14,6 +14,8 @@ class AppConstants {
   static const String checkOutPathApi = "/attendances/checkout";
   static const String leaveRequestPathApi = "/leave-requests";
   static const String pointRecordPathApi = "/point-records";
+  static const String refreshTokenEmployeeEndpoint = '/auth/employee/refresh-token';
+  static const String refreshTokenAdminEndpoint = '/auth/admin/refresh-token';
 
   // Storage Keys
   static const String userKey = "user_data";
