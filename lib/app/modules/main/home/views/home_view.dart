@@ -65,6 +65,7 @@ class HomeView extends GetView<HomeController> {
                         // Durasi kerja hanya muncul setelah check-in & belum checkout
                         if (controller.hasCheckedIn.value && !controller.hasCheckedOut.value) _buildWorkDuration(),
                         SizedBox(height: 24.h),
+                        _buildModeToggle(),
                         _buildCheckButton(),
                         SizedBox(height: 28.h),
                         _buildLocationCard(),
@@ -229,7 +230,7 @@ class HomeView extends GetView<HomeController> {
                     ),
                     SizedBox(height: 2.h),
                     Text(
-                      controller.checkInTimeDisplay.value,
+                      controller.checkInTimeDisplay.value.isEmpty ? "-" : controller.checkInTimeDisplay.value,
                       style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w700, color: SecondaryColor.neutral700),
                     ),
                   ],
@@ -343,6 +344,65 @@ class HomeView extends GetView<HomeController> {
             style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xffFF6B2C)),
           ),
         ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────
+  // Manual Mode Toggle
+  // ─────────────────────────────────────────────
+  Widget _buildModeToggle() {
+    if (controller.hasCheckedOut.value) return const SizedBox.shrink(); // Hide if completely done
+
+    return Center(
+      child: Container(
+        margin: EdgeInsets.only(bottom: 16.h),
+        decoration: BoxDecoration(
+          color: SecondaryColor.white,
+          borderRadius: BorderRadius.circular(20.r),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              onTap: () => controller.hasCheckedIn.value = false,
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                decoration: BoxDecoration(
+                  color: !controller.hasCheckedIn.value ? MainColor.blue2 : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20.r),
+                ),
+                child: Text(
+                  'Check In',
+                  style: TextStyle(
+                    fontSize: 12.sp,
+                    fontWeight: !controller.hasCheckedIn.value ? FontWeight.w700 : FontWeight.w500,
+                    color: !controller.hasCheckedIn.value ? SecondaryColor.white : SecondaryColor.neutral500,
+                  ),
+                ),
+              ),
+            ),
+            GestureDetector(
+              onTap: () => controller.hasCheckedIn.value = true,
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                decoration: BoxDecoration(
+                  color: controller.hasCheckedIn.value ? const Color(0xffFF6B2C) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20.r),
+                ),
+                child: Text(
+                  'Check Out',
+                  style: TextStyle(
+                    fontSize: 12.sp,
+                    fontWeight: controller.hasCheckedIn.value ? FontWeight.w700 : FontWeight.w500,
+                    color: controller.hasCheckedIn.value ? SecondaryColor.white : SecondaryColor.neutral500,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

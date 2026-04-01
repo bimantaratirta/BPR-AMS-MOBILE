@@ -74,6 +74,7 @@ class HomeController extends GetxController {
 
   /// Waktu ketika user melakukan check-in
   DateTime? checkInTime;
+  DateTime? checkOutTime;
 
   /// Jam check-in yang ditampilkan, contoh: "07:55:12 WIB"
   final RxString checkInTimeDisplay = ''.obs;
@@ -129,7 +130,7 @@ class HomeController extends GetxController {
     currentDateDisplay.value = DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(now);
 
     // Live timer hanya aktif saat sudah check-in dan BELUM checkout
-    if (hasCheckedIn.value && !hasCheckedOut.value && checkInTime != null) {
+    if (checkInTime != null && checkOutTime == null) {
       final diff = now.difference(checkInTime!);
       final hours = diff.inHours;
       final minutes = diff.inMinutes % 60;
@@ -203,6 +204,7 @@ class HomeController extends GetxController {
       hasCheckedIn.value = attendance.checkInTime != null;
       if (attendance.checkInTime != null) {
         checkInTime = attendance.checkInTime;
+        checkOutTime = attendance.checkOutTime;
         checkInTimeDisplay.value = '${DateFormat('HH:mm:ss').format(attendance.checkInTime!)} WIB';
         checkInStatus.value = statusLabel(attendance.status);
       }

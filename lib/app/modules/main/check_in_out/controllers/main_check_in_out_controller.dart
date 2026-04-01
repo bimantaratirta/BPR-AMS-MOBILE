@@ -385,6 +385,9 @@ class MainCheckInOutController extends GetxController with GetTickerProviderStat
       if (response.data?.id != null) {
         home.attendanceId.value = response.data!.id;
       }
+
+      home.refreshTodayAttendance();
+      home.refreshPoints();
     }
 
     // Auto-back after 4 seconds
