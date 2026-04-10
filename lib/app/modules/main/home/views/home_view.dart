@@ -1,11 +1,13 @@
 import 'package:bpr_ams/app/common/constant/app_colors.dart';
 import 'package:bpr_ams/app/routes/app_pages.dart';
-import 'package:bpr_ams/app/widgets/build_custom_painter.dart';
+
 import 'package:bpr_ams/app/widgets/build_custom_snackbar.dart';
 import 'package:bpr_ams/app/widgets/build_navigation/build_bottom_navigation_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../controllers/home_controller.dart';
 
@@ -596,7 +598,7 @@ class HomeView extends GetView<HomeController> {
               ],
             ),
           ),
-          // Map placeholder
+          // Map View
           Container(
             height: 140.h,
             margin: EdgeInsets.symmetric(horizontal: 12.w),
@@ -604,46 +606,88 @@ class HomeView extends GetView<HomeController> {
               color: controller.hasCheckedIn.value ? const Color(0xffF2E8DC) : const Color(0xffE8EEF8),
               borderRadius: BorderRadius.circular(12.r),
             ),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12.r),
-                    child: CustomPaint(
-                      painter: BuildCustomPainter(
-                        lineColor: controller.hasCheckedIn.value ? const Color(0xffE0CDB8) : const Color(0xffCDD8EE),
-                      ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12.r),
+              child: Obx(() {
+                final lat = controller.deviceLat.value;
+                final lng = controller.deviceLng.value;
+                final branchLat = controller.branchLat.value;
+                final branchLng = controller.branchLng.value;
+                final employee = controller.authController.employee.value;
+                final radius = employee?.branch?.radius?.toDouble() ?? 50.0;
+
+                if (lat == null || lng == null || branchLat == null || branchLng == null) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                return FlutterMap(
+                  mapController: controller.mapController,
+                  options: MapOptions(
+                    initialCameraFit: CameraFit.bounds(
+                      bounds: LatLngBounds.fromPoints([
+                        LatLng(lat, lng),
+                        LatLng(branchLat, branchLng),
+                      ]),
+                      padding: const EdgeInsets.all(24.0),
+                    ),
+                    interactionOptions: const InteractionOptions(
+                      flags: InteractiveFlag.all, 
                     ),
                   ),
-                ),
-                // Radius circle
-                Center(
-                  child: Container(
-                    width: 80.w,
-                    height: 80.w,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: mapDotColor.withOpacity(0.12),
-                      border: Border.all(
-                        color: mapDotColor.withOpacity(0.3),
-                        width: 1.5,
-                        strokeAlign: BorderSide.strokeAlignOutside,
-                      ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.bpr.ams',
                     ),
-                    child: Center(
-                      child: Container(
-                        width: 14.w,
-                        height: 14.w,
-                        decoration: BoxDecoration(
-                          color: mapDotColor,
-                          shape: BoxShape.circle,
-                          boxShadow: [BoxShadow(color: mapDotColor.withOpacity(0.4), blurRadius: 6, spreadRadius: 2)],
+                    PolylineLayer(
+                      polylines: [
+                        Polyline(
+                          points: [LatLng(lat, lng), LatLng(branchLat, branchLng)],
+                          color: MainColor.blue2.withOpacity(0.8),
+                          strokeWidth: 3.0,
                         ),
-                      ),
+                      ],
                     ),
-                  ),
-                ),
-              ],
+                    CircleLayer(
+                      circles: [
+                        CircleMarker(
+                          point: LatLng(branchLat, branchLng),
+                          color: mapDotColor.withOpacity(0.12),
+                          borderColor: mapDotColor.withOpacity(0.3),
+                          borderStrokeWidth: 1.5,
+                          useRadiusInMeter: true,
+                          radius: radius, // in meters
+                        ),
+                      ],
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        // Branch marker
+                        Marker(
+                          point: LatLng(branchLat, branchLng),
+                          width: 40.0,
+                          height: 40.0,
+                          child: Icon(Icons.location_city_rounded, color: MainColor.blue2, size: 24.sp),
+                        ),
+                        // Device marker
+                        Marker(
+                          point: LatLng(lat, lng),
+                          width: 14.w,
+                          height: 14.w,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: controller.isInRadius.value ? SecondaryColor.success700 : SecondaryColor.danger600,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              }),
             ),
           ),
           // Status chip + distance info
