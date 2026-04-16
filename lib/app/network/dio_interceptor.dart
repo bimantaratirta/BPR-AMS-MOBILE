@@ -24,6 +24,7 @@ class DioInterceptor extends Interceptor {
     if (kDebugMode) {
       print('REQUEST[${options.method}] => PATH: ${options.path}');
       print('Headers: ${options.headers}');
+      print('Query Parameters: ${options.queryParameters}');
       print('Data: ${options.data}');
     }
 
@@ -104,16 +105,14 @@ class DioInterceptor extends Interceptor {
   Future<void> _refreshJWTToken(String refreshToken) async {
     final userType = StorageClient.getUserType();
     final isEmployee = userType == 'EMPLOYEE';
-    final endpoint = isEmployee
-        ? '${AppConstants.baseApiUrl}${AppConstants.refreshTokenEmployeeEndpoint}'
-        : '${AppConstants.baseApiUrl}${AppConstants.refreshTokenAdminEndpoint}';
+    final endpoint =
+        isEmployee
+            ? '${AppConstants.baseApiUrl}${AppConstants.refreshTokenEmployeeEndpoint}'
+            : '${AppConstants.baseApiUrl}${AppConstants.refreshTokenAdminEndpoint}';
 
     // Gunakan Dio baru tanpa interceptor agar tidak loop
     final freshDio = Dio();
-    final response = await freshDio.post(
-      endpoint,
-      options: Options(headers: {'Authorization': 'Bearer $refreshToken'}),
-    );
+    final response = await freshDio.post(endpoint, options: Options(headers: {'Authorization': 'Bearer $refreshToken'}));
 
     if (response.statusCode == 200 && response.data != null) {
       final data = response.data['data'];

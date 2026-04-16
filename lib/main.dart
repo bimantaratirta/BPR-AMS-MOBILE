@@ -39,10 +39,7 @@ void main() async {
   runApp(
     kIsWeb && kReleaseMode
         ? const MyApp()
-        : DevicePreview(
-            enabled: !kReleaseMode && kIsWeb,
-            builder: (context) => const MyApp(),
-          ),
+        : DevicePreview(enabled: !kReleaseMode && kIsWeb, builder: (context) => const MyApp()),
   );
 }
 

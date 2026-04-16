@@ -66,8 +66,15 @@ class MainCheckInOutController extends GetxController with GetTickerProviderStat
   // ── Result data ───────────────────────────────────────
   late DateTime actionTime; // time of check-in or check-out
   String? responseStatus; // status from API response
+  DateTime? responseCheckInTime; // checkInTime from API response
+  int? responsePoints; // points from API response
 
-  String get actionTimeDisplay => '${DateFormat('HH:mm:ss').format(actionTime)} WIB';
+  String get actionTimeDisplay {
+    if (responseCheckInTime != null) {
+      return '${DateFormat('HH:mm:ss').format(responseCheckInTime!)} WIB';
+    }
+    return '${DateFormat('HH:mm:ss').format(actionTime)} WIB';
+  }
 
   String get checkInStatusText {
     if (isCheckOut) return '';
@@ -82,6 +89,9 @@ class MainCheckInOutController extends GetxController with GetTickerProviderStat
 
   String get poinEarned {
     if (isCheckOut) return '';
+    if (responsePoints != null) {
+      return '+$responsePoints Poin';
+    }
     final isOnTime = actionTime.hour < 8 || (actionTime.hour == 8 && actionTime.minute == 0);
     final isHalf = actionTime.hour == 8 && actionTime.minute >= 1 && actionTime.minute <= 30;
     if (isOnTime) return '+1 Poin';
@@ -361,6 +371,8 @@ class MainCheckInOutController extends GetxController with GetTickerProviderStat
 
     // Success — update HomeController with API response
     responseStatus = response.data?.status;
+    responsePoints = response.data?.points;
+    responseCheckInTime = response.data?.checkInTime;
     stage.value = CheckInStage.success;
 
     await Future.delayed(const Duration(milliseconds: 300));
@@ -368,8 +380,8 @@ class MainCheckInOutController extends GetxController with GetTickerProviderStat
     if (Get.isRegistered<HomeController>()) {
       final home = Get.find<HomeController>();
       home.hasCheckedIn.value = true;
-      home.checkInTime = actionTime;
-      home.checkInTimeDisplay.value = '${DateFormat('HH:mm:ss').format(actionTime)} WIB';
+      home.checkInTime = response.data?.checkInTime ?? actionTime;
+      home.checkInTimeDisplay.value = '${DateFormat('HH:mm:ss').format(home.checkInTime!)} WIB';
 
       // Use API response status via statusLabel
       if (response.data?.status != null) {
@@ -385,6 +397,9 @@ class MainCheckInOutController extends GetxController with GetTickerProviderStat
       if (response.data?.id != null) {
         home.attendanceId.value = response.data!.id;
       }
+
+      home.refreshTodayAttendance();
+      home.refreshPoints();
     }
 
     // Auto-back after 4 seconds
