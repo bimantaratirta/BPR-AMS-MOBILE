@@ -5,7 +5,10 @@ import 'package:bpr_ams/app/data/modules/attendance/attendance_service.dart';
 import 'package:bpr_ams/app/data/modules/attendance/models/attendance_model.dart';
 import 'package:bpr_ams/app/data/modules/point_record/point_record_service.dart';
 import 'package:bpr_ams/app/modules/auth/controllers/auth_controller.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:get/get.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
@@ -65,6 +68,13 @@ class HomeController extends GetxController {
   final RxBool isCheckingLocation = true.obs;
   final RxString locationErrorMessage = ''.obs;
   final RxDouble distanceFromBranch = 0.0.obs;
+  final RxnDouble deviceLat = RxnDouble();
+  final RxnDouble deviceLng = RxnDouble();
+  final RxnDouble branchLat = RxnDouble();
+  final RxnDouble branchLng = RxnDouble();
+
+  // ---- Map Controller
+  final MapController mapController = MapController();
 
   /// Data attendance hari ini (null jika belum check-in)
   final Rx<AttendanceModel?> todayAttendance = Rx<AttendanceModel?>(null);
@@ -74,6 +84,7 @@ class HomeController extends GetxController {
 
   /// Waktu ketika user melakukan check-in
   DateTime? checkInTime;
+  DateTime? checkOutTime;
 
   /// Jam check-in yang ditampilkan, contoh: "07:55:12 WIB"
   final RxString checkInTimeDisplay = ''.obs;
@@ -129,7 +140,7 @@ class HomeController extends GetxController {
     currentDateDisplay.value = DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(now);
 
     // Live timer hanya aktif saat sudah check-in dan BELUM checkout
-    if (hasCheckedIn.value && !hasCheckedOut.value && checkInTime != null) {
+    if (checkInTime != null && checkOutTime == null) {
       final diff = now.difference(checkInTime!);
       final hours = diff.inHours;
       final minutes = diff.inMinutes % 60;
@@ -164,6 +175,29 @@ class HomeController extends GetxController {
 
     isInRadius.value = result.isInRadius;
     distanceFromBranch.value = result.distance;
+    
+    // Save to expose to UI map
+    branchLat.value = branch.latitude;
+    branchLng.value = branch.longitude;
+    if (result.deviceLat != null && result.deviceLng != null) {
+      deviceLat.value = result.deviceLat;
+      deviceLng.value = result.deviceLng;
+      
+      // Auto-center map to fit both device and branch if controller is attached
+      try {
+        mapController.fitCamera(
+          CameraFit.bounds(
+            bounds: LatLngBounds.fromPoints([
+              LatLng(result.deviceLat!, result.deviceLng!),
+              LatLng(branch.latitude!, branch.longitude!),
+            ]),
+            padding: const EdgeInsets.all(32.0),
+          ),
+        );
+      } catch (_) {
+        // Map not built yet, ignore
+      }
+    }
 
     if (result.error != null) {
       locationErrorMessage.value = result.error!;
@@ -203,6 +237,7 @@ class HomeController extends GetxController {
       hasCheckedIn.value = attendance.checkInTime != null;
       if (attendance.checkInTime != null) {
         checkInTime = attendance.checkInTime;
+        checkOutTime = attendance.checkOutTime;
         checkInTimeDisplay.value = '${DateFormat('HH:mm:ss').format(attendance.checkInTime!)} WIB';
         checkInStatus.value = statusLabel(attendance.status);
       }
