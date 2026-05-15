@@ -2,7 +2,6 @@ import 'package:bpr_ams/app/common/constant/app_colors.dart';
 import 'package:bpr_ams/app/routes/app_pages.dart';
 
 import 'package:bpr_ams/app/widgets/build_custom_snackbar.dart';
-import 'package:bpr_ams/app/widgets/build_navigation/build_bottom_navigation_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -48,35 +47,39 @@ class HomeView extends GetView<HomeController> {
           child:
               controller.isLoadingAttendance.value
                   ? const Center(child: CircularProgressIndicator())
-                  : SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildHeader(),
-                        SizedBox(height: 20.h),
-                        _buildEmployeeCard(),
-                        SizedBox(height: 12.h),
-                        _buildPointsCard(),
-                        SizedBox(height: 12.h),
-                        // Card check-in/out info hanya muncul setelah check-in
-                        if (controller.hasCheckedIn.value) ...[_buildCheckedInInfoCard(), SizedBox(height: 12.h)],
-                        SizedBox(height: 20.h),
-                        _buildClock(),
-                        SizedBox(height: 8.h),
-                        // Durasi kerja hanya muncul setelah check-in & belum checkout
-                        if (controller.hasCheckedIn.value && !controller.hasCheckedOut.value) _buildWorkDuration(),
-                        SizedBox(height: 24.h),
-                        _buildModeToggle(),
-                        _buildCheckButton(),
-                        SizedBox(height: 28.h),
-                        _buildLocationCard(),
-                        SizedBox(height: 20.h),
-                      ],
+                  : RefreshIndicator(
+                    onRefresh: controller.refreshAll,
+                    color: MainColor.blue2,
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildHeader(),
+                          SizedBox(height: 20.h),
+                          _buildEmployeeCard(),
+                          SizedBox(height: 12.h),
+                          _buildPointsCard(),
+                          SizedBox(height: 12.h),
+                          // Card check-in/out info hanya muncul setelah check-in
+                          if (controller.hasCheckedIn.value) ...[_buildCheckedInInfoCard(), SizedBox(height: 12.h)],
+                          SizedBox(height: 20.h),
+                          _buildClock(),
+                          SizedBox(height: 8.h),
+                          // Durasi kerja hanya muncul setelah check-in & belum checkout
+                          if (controller.hasCheckedIn.value && !controller.hasCheckedOut.value) _buildWorkDuration(),
+                          SizedBox(height: 24.h),
+                          _buildModeToggle(),
+                          _buildCheckButton(),
+                          SizedBox(height: 28.h),
+                          _buildLocationCard(),
+                          SizedBox(height: 20.h),
+                        ],
+                      ),
                     ),
                   ),
         ),
-        bottomNavigationBar: const BuildBottomNavigationBar(),
       ),
     );
   }

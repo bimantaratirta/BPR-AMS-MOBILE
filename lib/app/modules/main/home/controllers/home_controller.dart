@@ -212,14 +212,14 @@ class HomeController extends GetxController {
   }
 
   /// Fetch data attendance hari ini dari API
-  Future<void> _fetchTodayAttendance() async {
+  Future<void> _fetchTodayAttendance({bool showLoader = true}) async {
     final employee = authController.employee.value;
     if (authController.pickUserType.value != UserType.employee || employee == null) {
       isLoadingAttendance.value = false;
       return;
     }
 
-    isLoadingAttendance.value = true;
+    if (showLoader) isLoadingAttendance.value = true;
 
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
     final response = await _attendanceService.getAttendances(
@@ -272,7 +272,7 @@ class HomeController extends GetxController {
       workDuration.value = '';
     }
 
-    isLoadingAttendance.value = false;
+    if (showLoader) isLoadingAttendance.value = false;
   }
 
   /// Refresh data attendance hari ini (dipanggil setelah check-in/out berhasil)
@@ -281,14 +281,14 @@ class HomeController extends GetxController {
   }
 
   /// Fetch total poin kehadiran dari API
-  Future<void> _fetchTotalPoints() async {
+  Future<void> _fetchTotalPoints({bool showLoader = true}) async {
     final employee = authController.employee.value;
     if (authController.pickUserType.value != UserType.employee || employee == null) {
       isLoadingPoints.value = false;
       return;
     }
 
-    isLoadingPoints.value = true;
+    if (showLoader) isLoadingPoints.value = true;
 
     final response = await _pointRecordService.getPointRecords(
       queryParameters: {
@@ -301,12 +301,22 @@ class HomeController extends GetxController {
       attendancePoints.value = total.toDouble();
     }
 
-    isLoadingPoints.value = false;
+    if (showLoader) isLoadingPoints.value = false;
   }
 
   /// Refresh poin (dipanggil setelah check-in berhasil)
   Future<void> refreshPoints() async {
     await _fetchTotalPoints();
+  }
+
+  /// Refresh semua data home (dipanggil dari pull-to-refresh).
+  /// Skip loader flag supaya RefreshIndicator tetap visible, gak ke-swap fullscreen spinner.
+  Future<void> refreshAll() async {
+    await Future.wait([
+      _fetchTodayAttendance(showLoader: false),
+      _fetchTotalPoints(showLoader: false),
+      _checkLocationRadius(),
+    ]);
   }
 
   @override
