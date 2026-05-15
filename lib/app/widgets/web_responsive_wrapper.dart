@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:bpr_ams/app/common/constant/app_colors.dart';
 
 /// Wrapper yang constrain lebar app ke ukuran mobile saat dibuka di desktop browser.
 /// Di mobile/native, child ditampilkan apa adanya tanpa constraint.
@@ -29,9 +28,7 @@ class WebResponsiveWrapper extends StatelessWidget {
           child: Center(
             child: Container(
               width: maxMobileWidth,
-              constraints: BoxConstraints(
-                maxHeight: constraints.maxHeight,
-              ),
+              constraints: BoxConstraints(maxHeight: constraints.maxHeight),
               decoration: BoxDecoration(
                 color: Colors.white,
                 boxShadow: [
@@ -45,9 +42,9 @@ class WebResponsiveWrapper extends StatelessWidget {
               ),
               clipBehavior: Clip.antiAlias,
               child: MediaQuery(
-                data: MediaQuery.of(context).copyWith(
-                  size: Size(maxMobileWidth, constraints.maxHeight),
-                ),
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(size: Size(maxMobileWidth, constraints.maxHeight)),
                 child: child,
               ),
             ),
