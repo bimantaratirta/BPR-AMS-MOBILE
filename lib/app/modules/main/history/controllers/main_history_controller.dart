@@ -14,7 +14,7 @@ class MainHistoryController extends GetxController {
   final LeaveRequestService _leaveRequestService = LeaveRequestService();
   final AuthController _authController = Get.find<AuthController>();
 
-  // ---- Scroll controller untuk infinite scroll + pull-to-refresh
+  // ---- Scroll controller untuk pull-to-refresh scroll-to-top
   final ScrollController scrollController = ScrollController();
 
   // ---- Tab (0 = Absensi, 1 = Izin)
@@ -26,17 +26,6 @@ class MainHistoryController extends GetxController {
   // ---- Loading states
   final RxBool isLoadingAbsensi = false.obs;
   final RxBool isLoadingIzin = false.obs;
-  final RxBool isLoadingMoreAbsensi = false.obs;
-  final RxBool isLoadingMoreIzin = false.obs;
-
-  // ---- Pagination state – Absensi
-  int _absensiPage = 1;
-  static const int _pageLimit = 10;
-  final RxBool hasMoreAbsensi = true.obs;
-
-  // ---- Pagination state – Izin
-  int _izinPage = 1;
-  final RxBool hasMoreIzin = true.obs;
 
   // ---- Data from API
   final RxList<AttendanceModel> attendances = <AttendanceModel>[].obs;
@@ -82,160 +71,99 @@ class MainHistoryController extends GetxController {
   }
 
   void selectTab(int index) {
+    if (selectedTab.value == index) return;
     selectedTab.value = index;
     _resetAndFetch();
   }
 
-  // ── Reset pagination & fetch page 1 ──
+  // ── Clear & fetch active tab pakai filter terkini ──
   void _resetAndFetch() {
     if (selectedTab.value == 0) {
-      _absensiPage = 1;
-      hasMoreAbsensi.value = true;
       attendances.clear();
       fetchAttendances();
     } else {
-      _izinPage = 1;
-      hasMoreIzin.value = true;
       leaveRequests.clear();
       fetchLeaveRequests();
     }
   }
 
-  // ── Pull-to-refresh ──
+  // ── Pull-to-refresh — refresh kedua tab ──
   Future<void> onRefresh() async {
     _scrollToTop();
-    _resetAndFetch();
-    // Wait until loading finishes
-    await Future.doWhile(() async {
-      await Future.delayed(const Duration(milliseconds: 100));
-      if (selectedTab.value == 0) return isLoadingAbsensi.value;
-      return isLoadingIzin.value;
-    });
+    attendances.clear();
+    leaveRequests.clear();
+    await Future.wait([
+      fetchAttendances(),
+      fetchLeaveRequests(),
+    ]);
   }
 
-  // ── Load more (infinite scroll) ──
-  void loadMore() {
-    if (selectedTab.value == 0) {
-      if (!isLoadingAbsensi.value && !isLoadingMoreAbsensi.value && hasMoreAbsensi.value) {
-        _absensiPage++;
-        fetchAttendances(isLoadMore: true);
-      }
-    } else {
-      if (!isLoadingIzin.value && !isLoadingMoreIzin.value && hasMoreIzin.value) {
-        _izinPage++;
-        fetchLeaveRequests(isLoadMore: true);
-      }
-    }
-  }
-
-  // ── Fetch attendance data from API ──
-  Future<void> fetchAttendances({bool isLoadMore = false}) async {
-    if (isLoadMore) {
-      isLoadingMoreAbsensi.value = true;
-    } else {
-      isLoadingAbsensi.value = true;
-    }
+  // ── Fetch attendance data from API (semua data 1 bulan) ──
+  Future<void> fetchAttendances() async {
+    isLoadingAbsensi.value = true;
 
     final employeeId = _authController.employee.value?.id;
     if (employeeId == null) {
       isLoadingAbsensi.value = false;
-      isLoadingMoreAbsensi.value = false;
       return;
     }
 
     try {
       final response = await _attendanceService.getAttendances(
         queryParameters: {
-          'pagination': {'page': _absensiPage, 'limit': _pageLimit},
+          'get_all': true,
           'filter': {
             'month': "${selectedMonth.value.year.toString()}-${selectedMonth.value.month.toString().padLeft(2, '0')}",
             'employeeId': employeeId,
           },
           'order_by': [
-            {'field': 'created_at', 'direction': 'desc'},
+            {'field': 'createdAt', 'direction': 'desc'},
           ],
         },
       );
 
       if ((response.code == 200 || response.code == 201) && response.data != null) {
-        final newItems = response.data!;
-        if (isLoadMore) {
-          attendances.addAll(newItems);
-        } else {
-          attendances.value = newItems;
-        }
-
-        // Determine if there are more pages
-        final total = _extractTotal(response.pagination);
-        hasMoreAbsensi.value = attendances.length < total;
-      } else {
-        hasMoreAbsensi.value = false;
+        attendances.value = response.data!;
       }
     } catch (_) {
-      hasMoreAbsensi.value = false;
+      // ignore
     } finally {
       isLoadingAbsensi.value = false;
-      isLoadingMoreAbsensi.value = false;
     }
   }
 
-  // ── Fetch leave requests from API ──
-  Future<void> fetchLeaveRequests({bool isLoadMore = false}) async {
-    if (isLoadMore) {
-      isLoadingMoreIzin.value = true;
-    } else {
-      isLoadingIzin.value = true;
-    }
+  // ── Fetch leave requests from API (semua data 1 bulan) ──
+  Future<void> fetchLeaveRequests() async {
+    isLoadingIzin.value = true;
 
     final employeeId = _authController.employee.value?.id;
     if (employeeId == null) {
       isLoadingIzin.value = false;
-      isLoadingMoreIzin.value = false;
       return;
     }
 
     try {
       final response = await _leaveRequestService.getLeaveRequests(
         queryParameters: {
-          'pagination': {'page': _izinPage, 'limit': _pageLimit},
+          'get_all': true,
           'filter': {
             'month': "${selectedMonth.value.year.toString()}-${selectedMonth.value.month.toString().padLeft(2, '0')}",
             'employeeId': employeeId,
           },
           'order_by': [
-            {'field': 'created_at', 'direction': 'desc'},
+            {'field': 'createdAt', 'direction': 'desc'},
           ],
         },
       );
 
       if ((response.code == 200 || response.code == 201) && response.data != null) {
-        final newItems = response.data!;
-        if (isLoadMore) {
-          leaveRequests.addAll(newItems);
-        } else {
-          leaveRequests.value = newItems;
-        }
-
-        final total = _extractTotal(response.pagination);
-        hasMoreIzin.value = leaveRequests.length < total;
-      } else {
-        hasMoreIzin.value = false;
+        leaveRequests.value = response.data!;
       }
     } catch (_) {
-      hasMoreIzin.value = false;
+      // ignore
     } finally {
       isLoadingIzin.value = false;
-      isLoadingMoreIzin.value = false;
     }
-  }
-
-  // ── Extract total count from pagination metadata ──
-  int _extractTotal(dynamic pagination) {
-    if (pagination == null) return 0;
-    if (pagination is Map) {
-      return (pagination['total'] as int?) ?? (pagination['totalItems'] as int?) ?? (pagination['count'] as int?) ?? 0;
-    }
-    return 0;
   }
 
   // ── Scroll to top helper ──
@@ -311,11 +239,8 @@ class MainHistoryController extends GetxController {
   void onInit() {
     super.onInit();
     initializeDateFormatting('id_ID', null);
-    // Set bulan ke bulan ini
     final now = DateTime.now();
     selectedMonth.value = DateTime(now.year, now.month);
-
-    // Fetch initial data
     fetchAttendances();
   }
 

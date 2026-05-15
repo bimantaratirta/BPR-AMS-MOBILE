@@ -14,26 +14,20 @@ class MainPoinController extends GetxController {
   final authController = Get.find<AuthController>();
   final _pointRecordService = PointRecordService();
 
-  // ── Scroll controller untuk infinite scroll & pull-to-refresh ──
+  // ── Scroll controller untuk pull-to-refresh scroll-to-top ──
   final ScrollController scrollController = ScrollController();
 
   // ── Total poin (semua waktu) ──────────────────────────────
   final RxDouble totalPoin = 0.0.obs;
 
-  // ── Loading states ──────────────────────────────────────
+  // ── Loading state ──────────────────────────────────────
   final RxBool isLoading = true.obs;
-  final RxBool isLoadingMore = false.obs;
 
   // ── Month navigation ────────────────────────────────────
   final Rx<DateTime> selectedMonth = DateTime(DateTime.now().year, DateTime.now().month).obs;
 
   // ── Records from API ────────────────────────────────────
   final RxList<PointRecordModel> records = <PointRecordModel>[].obs;
-
-  // ── Pagination state ─────────────────────────────────────
-  int _currentPage = 1;
-  static const int _pageLimit = 10;
-  final RxBool hasMore = true.obs;
 
   // ── Monthly summary ──────────────────────────────────────
   double get poinBulanIni => records.fold(0.0, (sum, r) => sum + (r.points ?? 0));
@@ -87,100 +81,58 @@ class MainPoinController extends GetxController {
   void prevMonth() {
     final m = selectedMonth.value;
     selectedMonth.value = DateTime(m.year, m.month - 1);
-    _resetAndFetch();
+    _fetchRecords();
   }
 
   void nextMonth() {
     final m = selectedMonth.value;
     selectedMonth.value = DateTime(m.year, m.month + 1);
-    _resetAndFetch();
-  }
-
-  // ── Reset pagination & fetch page 1 ──────────────────
-  void _resetAndFetch() {
-    _currentPage = 1;
-    hasMore.value = true;
-    records.clear();
     _fetchRecords();
   }
 
   // ── Pull-to-refresh ───────────────────────────────────
   Future<void> onRefresh() async {
     _scrollToTop();
-    _resetAndFetch();
-    // Wait until main loading finishes
-    await Future.doWhile(() async {
-      await Future.delayed(const Duration(milliseconds: 100));
-      return isLoading.value;
-    });
+    await Future.wait([
+      _fetchRecords(),
+      _fetchTotalPoints(),
+    ]);
   }
 
-  // ── Load more (infinite scroll) ───────────────────────
-  void loadMore() {
-    if (!isLoading.value && !isLoadingMore.value && hasMore.value) {
-      _currentPage++;
-      _fetchRecords(isLoadMore: true);
-    }
-  }
-
-  // ── Fetch records from API ────────────────────────────
-  Future<void> _fetchRecords({bool isLoadMore = false}) async {
+  // ── Fetch records from API (semua data 1 bulan) ──────
+  Future<void> _fetchRecords() async {
     final employee = authController.employee.value;
     if (authController.pickUserType.value != UserType.employee || employee == null) {
       isLoading.value = false;
       return;
     }
 
-    if (isLoadMore) {
-      isLoadingMore.value = true;
-    } else {
-      isLoading.value = true;
-    }
+    isLoading.value = true;
 
     final month = selectedMonth.value;
     try {
       final response = await _pointRecordService.getPointRecords(
         queryParameters: {
-          'pagination': {'page': _currentPage, 'limit': _pageLimit},
+          'get_all': true,
           'filter': {
             'employeeId': employee.id,
             'month': '${month.year.toString()}-${month.month.toString().padLeft(2, '0')}',
           },
           'order_by': [
-            {'field': 'created_at', 'direction': 'desc'},
+            {'field': 'createdAt', 'direction': 'desc'},
           ],
         },
       );
 
       if (response.data != null) {
-        // Filter client-side juga sebagai safeguard jika server tidak memfilter bulan
-        final selectedYear = month.year;
-        final selectedMonthNum = month.month;
-        final newItems =
-            response.data!.where((r) {
-              if (r.date == null) return false;
-              final localDate = r.date!.toLocal();
-              return localDate.year == selectedYear && localDate.month == selectedMonthNum;
-            }).toList();
-
-        if (isLoadMore) {
-          records.addAll(newItems);
-        } else {
-          records.value = newItems;
-        }
-
-        // Determine if there are more pages
-        final total = _extractTotal(response.pagination);
-        hasMore.value = records.length < total;
+        records.value = response.data!;
       } else {
-        hasMore.value = false;
-        if (!isLoadMore) records.clear();
+        records.clear();
       }
     } catch (_) {
-      hasMore.value = false;
+      records.clear();
     } finally {
       isLoading.value = false;
-      isLoadingMore.value = false;
     }
   }
 
@@ -193,6 +145,7 @@ class MainPoinController extends GetxController {
 
     final response = await _pointRecordService.getPointRecords(
       queryParameters: {
+        'get_all': true,
         'filter': {'employeeId': employee.id},
       },
     );
@@ -200,15 +153,6 @@ class MainPoinController extends GetxController {
     if (response.data != null) {
       totalPoin.value = response.data!.fold(0.0, (sum, r) => sum + (r.points ?? 0));
     }
-  }
-
-  // ── Extract total count from pagination metadata ──────
-  int _extractTotal(dynamic pagination) {
-    if (pagination == null) return 0;
-    if (pagination is Map) {
-      return (pagination['total'] as int?) ?? (pagination['totalItems'] as int?) ?? (pagination['count'] as int?) ?? 0;
-    }
-    return 0;
   }
 
   // ── Scroll to top helper ──────────────────────────────

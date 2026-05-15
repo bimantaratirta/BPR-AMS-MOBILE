@@ -2,7 +2,6 @@ import 'package:bpr_ams/app/common/constant/app_colors.dart';
 import 'package:bpr_ams/app/data/modules/attendance/models/attendance_model.dart';
 import 'package:bpr_ams/app/data/modules/leave_request/models/leave_request_model.dart';
 import 'package:bpr_ams/app/modules/main/history/controllers/main_history_controller.dart';
-import 'package:bpr_ams/app/widgets/build_navigation/build_bottom_navigation_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
@@ -23,41 +22,26 @@ class MainHistoryView extends GetView<MainHistoryController> {
             _buildTopBar(),
             Expanded(
               child: Obx(
-                () => NotificationListener<ScrollNotification>(
-                  onNotification: (notification) {
-                    // Trigger load-more when within 200px of the bottom
-                    if (notification is ScrollUpdateNotification) {
-                      final metrics = notification.metrics;
-                      if (metrics.pixels >= metrics.maxScrollExtent - 200) {
-                        controller.loadMore();
-                      }
-                    }
-                    return false;
-                  },
-                  child: RefreshIndicator(
-                    color: MainColor.blue2,
-                    onRefresh: controller.onRefresh,
-                    child: SingleChildScrollView(
-                      controller: controller.scrollController,
-                      // Always scrollable so pull-to-refresh works even when content is short
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: EdgeInsets.symmetric(horizontal: 20.w),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(height: 16.h),
-                          _buildMonthSelector(),
-                          SizedBox(height: 12.h),
-                          _buildTabSwitcher(),
-                          SizedBox(height: 16.h),
-                          _buildSummaryCard(),
-                          SizedBox(height: 20.h),
-                          controller.selectedTab.value == 0 ? _buildAbsensiList() : _buildIzinList(),
-                          // Bottom loader for infinite scroll
-                          _buildBottomLoader(),
-                          SizedBox(height: 20.h),
-                        ],
-                      ),
+                () => RefreshIndicator(
+                  color: MainColor.blue2,
+                  onRefresh: controller.onRefresh,
+                  child: SingleChildScrollView(
+                    controller: controller.scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.symmetric(horizontal: 20.w),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(height: 16.h),
+                        _buildMonthSelector(),
+                        SizedBox(height: 12.h),
+                        _buildTabSwitcher(),
+                        SizedBox(height: 16.h),
+                        _buildSummaryCard(),
+                        SizedBox(height: 20.h),
+                        controller.selectedTab.value == 0 ? _buildAbsensiList() : _buildIzinList(),
+                        SizedBox(height: 20.h),
+                      ],
                     ),
                   ),
                 ),
@@ -66,7 +50,6 @@ class MainHistoryView extends GetView<MainHistoryController> {
           ],
         ),
       ),
-      bottomNavigationBar: const BuildBottomNavigationBar(),
     );
   }
 
@@ -441,46 +424,6 @@ class MainHistoryView extends GetView<MainHistoryController> {
         ),
       ),
     );
-  }
-
-  // ─────────────────────────────────────────────
-  // Bottom loader indicator for infinite scroll
-  // ─────────────────────────────────────────────
-  Widget _buildBottomLoader() {
-    final isLoadingMore =
-        controller.selectedTab.value == 0 ? controller.isLoadingMoreAbsensi.value : controller.isLoadingMoreIzin.value;
-
-    final hasMore = controller.selectedTab.value == 0 ? controller.hasMoreAbsensi.value : controller.hasMoreIzin.value;
-
-    final isInitialLoading =
-        controller.selectedTab.value == 0 ? controller.isLoadingAbsensi.value : controller.isLoadingIzin.value;
-
-    if (isInitialLoading) return const SizedBox.shrink();
-
-    if (isLoadingMore) {
-      return Padding(
-        padding: EdgeInsets.symmetric(vertical: 16.h),
-        child: Center(
-          child: SizedBox(
-            width: 24.w,
-            height: 24.w,
-            child: CircularProgressIndicator(strokeWidth: 2.5, color: MainColor.blue2),
-          ),
-        ),
-      );
-    }
-
-    if (!hasMore &&
-        (controller.selectedTab.value == 0 ? controller.attendances.isNotEmpty : controller.leaveRequests.isNotEmpty)) {
-      return Padding(
-        padding: EdgeInsets.symmetric(vertical: 16.h),
-        child: Center(
-          child: Text('— Semua data telah dimuat —', style: TextStyle(fontSize: 12.sp, color: SecondaryColor.neutral400)),
-        ),
-      );
-    }
-
-    return const SizedBox.shrink();
   }
 
   // ─────────────────────────────────────────────
