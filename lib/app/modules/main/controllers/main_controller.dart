@@ -2,7 +2,6 @@ import 'package:bpr_ams/app/common/constant/app_colors.dart';
 import 'package:bpr_ams/app/common/constant/app_assets.dart';
 import 'package:bpr_ams/app/data/main/bottom_navigation/bottom_navigation_item_model.dart';
 import 'package:bpr_ams/app/modules/auth/controllers/auth_controller.dart';
-import 'package:bpr_ams/app/routes/app_pages.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get/get_state_manager/src/simple/list_notifier.dart';
@@ -14,6 +13,8 @@ class MainController extends GetxController {
   // ---- State
   final RxInt currentIndex = 0.obs;
   final RxList<BottomNavigationItemModel> sidebarSettings = <BottomNavigationItemModel>[].obs;
+  // Lazy-load: tab cuma di-build saat pertama dibuka. HOME ter-mark default.
+  final RxSet<int> visitedTabs = <int>{HOME_INDEX}.obs;
   late Disposer _roleDisposer;
 
   // Index konstanta
@@ -21,11 +22,8 @@ class MainController extends GetxController {
   static const int PERMIT_INDEX = 1;
   static const int HISTORY_INDEX = 2;
 
-  // ====== ROUTE MAPS per role (child dari /main) ======
-  // Urutan list = urutan tab di bottom nav untuk role tsb.
-  List<String> generateRoutes(UserType? userType) {
-    return [Routes.MAIN_HOME, Routes.MAIN_PERMIT, Routes.MAIN_HISTORY];
-  }
+  // Total tab — sinkron dengan IndexedStack di MainView
+  static const int TAB_COUNT = 3;
 
   // ====== BUILD SIDEBAR (BOTTOM NAV) ITEMS SESUAI ROLE ======
   List<BottomNavigationItemModel> _buildItems(UserType? userType) {
@@ -61,41 +59,12 @@ class MainController extends GetxController {
     return items;
   }
 
-  // ====== NAVIGASI ANTAR TAB ======
+  // ====== NAVIGASI ANTAR TAB (IndexedStack) ======
   void changePage(int index) {
-    final userType = authController.pickUserType.value;
-    final routes = generateRoutes(userType);
-
-    // clamp index jika out of range
-    final safeIndex = index.clamp(0, routes.length - 1);
+    final safeIndex = index.clamp(0, TAB_COUNT - 1);
+    visitedTabs.add(safeIndex);
     if (currentIndex.value == safeIndex) return;
-
     currentIndex.value = safeIndex;
-    final childPath = routes[safeIndex]; // contoh: Routes.MAIN_HOME, Routes.NASABAH, dst.
-
-    Get.rootDelegate.toNamed('${Routes.MAIN}$childPath');
-  }
-
-  // Panggil ini setelah login jika perlu
-  void navigateToHome() {
-    currentIndex.value = 0; // Home
-    Get.rootDelegate.offNamed('${Routes.MAIN}${Routes.MAIN_HOME}');
-  }
-
-  // Sinkronkan index saat deep-link / refresh web mengarah ke child tertentu
-  void syncIndexFromLocation() {
-    final userType = authController.pickUserType.value;
-    final routes = generateRoutes(userType);
-
-    final location = Get.rootDelegate.currentConfiguration?.location ?? '';
-    // location contoh: /main/home, /main/report, ...
-    final matched = routes.indexWhere((r) => location.endsWith(r));
-    if (matched != -1) {
-      currentIndex.value = matched;
-    } else {
-      // fallback ke Home
-      currentIndex.value = 0;
-    }
   }
 
   // ====== Lifecycle ======
@@ -106,21 +75,10 @@ class MainController extends GetxController {
     final userType = authController.pickUserType.value;
     sidebarSettings.assignAll(_buildItems(userType));
 
-    // Simpan disposer yang dikembalikan oleh ever()
     _roleDisposer = ever(authController.pickUserType, (UserType? newUserType) {
-      final newItems = _buildItems(newUserType);
-      sidebarSettings.assignAll(newItems);
-
-      final routes = generateRoutes(newUserType);
-      if (currentIndex.value >= routes.length) {
-        currentIndex.value = 0;
-      }
-      final childPath = routes[currentIndex.value];
-
-      Get.rootDelegate.offNamed('${Routes.MAIN}$childPath');
+      sidebarSettings.assignAll(_buildItems(newUserType));
+      if (currentIndex.value >= TAB_COUNT) currentIndex.value = HOME_INDEX;
     });
-
-    syncIndexFromLocation();
   }
 
   void stopListeners() {

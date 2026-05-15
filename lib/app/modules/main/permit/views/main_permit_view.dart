@@ -1,5 +1,4 @@
 import 'package:bpr_ams/app/common/constant/app_colors.dart';
-import 'package:bpr_ams/app/widgets/build_navigation/build_bottom_navigation_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
@@ -75,7 +74,6 @@ class MainPermitView extends GetView<MainPermitController> {
           ],
         ),
       ),
-      bottomNavigationBar: const BuildBottomNavigationBar(),
     );
   }
 
