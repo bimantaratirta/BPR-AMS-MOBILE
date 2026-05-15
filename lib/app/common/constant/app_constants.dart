@@ -2,7 +2,7 @@ class AppConstants {
   // API Constants
   // static const String baseApiUrl = "https://chadwick-preludial-ayesha.ngrok-free.dev/api/v1";
   static const String baseApiUrl = "https://api-ams.bprss.com/api/v1";
-  static const String baseImageUrl = "https://s3-api.bprss.com/bpr-ams";
+  static const String baseImageUrl = "https://is3.cloudhost.id/bpr-ams";
 
   // Endpoints
   static const String authEmployeePathApi = "/auth/employee";
