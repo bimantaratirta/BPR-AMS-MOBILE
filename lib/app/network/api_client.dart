@@ -21,6 +21,35 @@ class ApiClient {
     _dio.interceptors.add(DioInterceptor(_dio));
   }
 
+  /// Flatten nested Map/List jadi bracket notation: `filter[month]=2026-02`,
+  /// `pagination[page]=1`, `order_by[0][field]=created_at`. Tanpa ini, Dio
+  /// JSON-encode nested Map → backend qs parser baca sebagai string, filter
+  /// nested kayak `filter.month` jadi undefined di server.
+  Map<String, dynamic>? _flattenQuery(Map<String, dynamic>? params) {
+    if (params == null) return null;
+    final result = <String, dynamic>{};
+    void walk(String key, dynamic value) {
+      if (value == null) return;
+      if (value is Map) {
+        value.forEach((k, v) => walk('$key[$k]', v));
+      } else if (value is List) {
+        for (var i = 0; i < value.length; i++) {
+          walk('$key[$i]', value[i]);
+        }
+      } else {
+        result[key] = value;
+      }
+    }
+    params.forEach((k, v) {
+      if (v is Map || v is List) {
+        walk(k, v);
+      } else {
+        result[k] = v;
+      }
+    });
+    return result;
+  }
+
   Future<ApiResponseModel<T>> _responseHandler<T>(Response response, ApiParams<T> param) async {
     if (param.options?.responseType == ResponseType.bytes) {
       if (response.data != null && response.data is List<int>) {
@@ -127,7 +156,7 @@ class ApiClient {
       final response = await _dio.get(
         param.path,
         data: param.body != null ? json.encode(param.body) : null,
-        queryParameters: param.queryParameters,
+        queryParameters: _flattenQuery(param.queryParameters),
         options: param.options,
       );
       final ApiResponseModel<T> result = await _responseHandler<T>(response, param);
@@ -152,7 +181,7 @@ class ApiClient {
       final response = await _dio.post(
         param.path,
         data: requestData,
-        queryParameters: param.queryParameters,
+        queryParameters: _flattenQuery(param.queryParameters),
         options: param.options,
       );
       final ApiResponseModel<T> result = await _responseHandler<T>(response, param);
@@ -177,7 +206,7 @@ class ApiClient {
       final response = await _dio.patch(
         param.path,
         data: requestData,
-        queryParameters: param.queryParameters,
+        queryParameters: _flattenQuery(param.queryParameters),
         options: param.options,
       );
       final ApiResponseModel<T> result = await _responseHandler<T>(response, param);
@@ -194,7 +223,7 @@ class ApiClient {
       final response = await _dio.put(
         param.path,
         data: param.body != null ? json.encode(param.body) : null,
-        queryParameters: param.queryParameters,
+        queryParameters: _flattenQuery(param.queryParameters),
         options: param.options,
       );
       final ApiResponseModel<T> result = await _responseHandler<T>(response, param);
@@ -211,7 +240,7 @@ class ApiClient {
       final response = await _dio.delete(
         param.path,
         data: param.body != null ? json.encode(param.body) : null,
-        queryParameters: param.queryParameters,
+        queryParameters: _flattenQuery(param.queryParameters),
         options: param.options,
       );
       final ApiResponseModel<T> result = await _responseHandler<T>(response, param);
@@ -226,7 +255,7 @@ class ApiClient {
     try {
       _dio.options.baseUrl = param.baseUrl != null ? param.baseUrl! : AppConstants.baseApiUrl;
 
-      final response = await _dio.get(param.path, queryParameters: param.queryParameters, options: param.options);
+      final response = await _dio.get(param.path, queryParameters: _flattenQuery(param.queryParameters), options: param.options);
 
       if (response.statusCode != 200) {
         return await _responseHandler<T>(response, param);
