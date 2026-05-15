@@ -55,12 +55,17 @@ class AttendanceRepository {
   }
 
   // ── Check-in (multipart with photo) ─────────────────────────
+  // Override timeout 60s — upload foto S3 di server bisa molor saat peak hour.
   Future<ApiResponseModel<AttendanceModel>> checkIn(FormData formData) async {
     return await apiClient.post(
       ApiParams<AttendanceModel>(
         path: AppConstants.checkInPathApi,
         formData: formData,
         fromJson: (json) => AttendanceModel.fromJson(json),
+        options: Options(
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 60),
+        ),
       ),
     );
   }

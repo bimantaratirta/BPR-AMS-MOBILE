@@ -295,6 +295,9 @@ class MainCheckInOutController extends GetxController with GetTickerProviderStat
 
   // ── Confirm ───────────────────────────────────────────
   Future<void> onConfirm() async {
+    // Dedupe: cegah double-tap bikin request ganda saat masih submitting
+    if (isSubmitting.value) return;
+
     isSubmitting.value = true;
     submitError.value = '';
     stage.value = CheckInStage.submitting;
@@ -363,6 +366,22 @@ class MainCheckInOutController extends GetxController with GetTickerProviderStat
     // Check for API errors (including 400 BAD_REQUEST)
     if (_isApiError(response)) {
       final errorMsg = _getApiErrorMessage(response);
+
+      // Idempotency: kalau request sebelumnya sebenarnya sukses tapi mobile
+      // timeout duluan, retry akan dapat "already checked in today" dari server.
+      // Treat sebagai sukses — user memang sudah check-in.
+      if (errorMsg.toLowerCase().contains('already checked in')) {
+        stage.value = CheckInStage.success;
+        if (Get.isRegistered<HomeController>()) {
+          final home = Get.find<HomeController>();
+          home.hasCheckedIn.value = true;
+          await home.refreshTodayAttendance();
+          await home.refreshPoints();
+        }
+        Future.delayed(const Duration(seconds: 4), () => Get.back());
+        return;
+      }
+
       submitError.value = errorMsg;
       stage.value = CheckInStage.captured;
       _showError(errorMsg);
